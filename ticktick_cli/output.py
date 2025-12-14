@@ -4,7 +4,7 @@ Provides human-readable and JSON output formatting.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from rich.console import Console
@@ -90,7 +90,7 @@ def format_date(date_str: str | None) -> str:
         today = datetime.now(dt.tzinfo).date() if dt.tzinfo else datetime.now().date()
         if dt.date() == today:
             return "Today"
-        tomorrow = today.replace(day=today.day + 1) if today.day < 28 else today
+        tomorrow = today + timedelta(days=1)
         if dt.date() == tomorrow:
             return "Tomorrow"
         return dt.strftime("%Y-%m-%d")
