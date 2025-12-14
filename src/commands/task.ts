@@ -16,6 +16,7 @@ import {
 } from "../output/index.js";
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createTaskCommand(): Command {
   const task = new Command("task").description("Manage tasks");
@@ -29,8 +30,9 @@ export function createTaskCommand(): Command {
     .option("--priority <level>", "Filter by priority (high, medium, low, none)")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         let tasks = await client.getTasks();
 
         // Apply filters
@@ -69,8 +71,9 @@ export function createTaskCommand(): Command {
     .description("Show task details")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const tasks = await client.getTasks();
         const foundTask = tasks.find(
           (t) => t.id === id || t.id?.startsWith(id)
@@ -125,8 +128,9 @@ export function createTaskCommand(): Command {
     .option("--status <status>", "Filter by status (Completed, Abandoned)", "Completed")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const tasks = await client.getClosedTasks(
           options.status,
           options.project
@@ -156,8 +160,9 @@ export function createTaskCommand(): Command {
     }, [])
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (title: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, title: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Build task data
         const taskData: Parameters<typeof client.createTask>[0] = { title };
@@ -212,8 +217,9 @@ export function createTaskCommand(): Command {
     .option("-d, --due <date>", "New due date (YYYY-MM-DD, today, tomorrow, +3d)")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the task first
         const tasks = await client.getTasks();
@@ -274,8 +280,9 @@ export function createTaskCommand(): Command {
     .command("done <id>")
     .description("Mark a task as complete")
     .action(
-      handleError(async (id: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the task first
         const tasks = await client.getTasks();
@@ -298,8 +305,9 @@ export function createTaskCommand(): Command {
     .command("abandon <id>")
     .description("Mark a task as abandoned")
     .action(
-      handleError(async (id: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the task first
         const tasks = await client.getTasks();
@@ -322,8 +330,9 @@ export function createTaskCommand(): Command {
     .command("reopen <id>")
     .description("Reopen a closed task")
     .action(
-      handleError(async (id: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Check closed tasks
         const closedTasks = await client.getClosedTasks();
@@ -347,8 +356,9 @@ export function createTaskCommand(): Command {
     .description("Delete a task")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the task first
         const tasks = await client.getTasks();
@@ -371,8 +381,9 @@ export function createTaskCommand(): Command {
     .command("subtask:add <taskId> <parentId>")
     .description("Make a task a subtask of another task")
     .action(
-      handleError(async (taskId: string, parentId: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, taskId: string, parentId: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find both tasks
         const tasks = await client.getTasks();
@@ -402,8 +413,9 @@ export function createTaskCommand(): Command {
     .command("subtask:unset <taskId>")
     .description("Remove a task from its parent (make it a top-level task)")
     .action(
-      handleError(async (taskId: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, taskId: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the task
         const tasks = await client.getTasks();

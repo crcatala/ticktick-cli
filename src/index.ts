@@ -12,13 +12,41 @@ import {
   createUserCommand,
   createSyncCommand,
 } from "./commands/index.js";
+import type { ValidationStrategy } from "./schemas/index.js";
+
+/**
+ * Global options that are passed to commands.
+ */
+export interface GlobalOptions {
+  validation: ValidationStrategy;
+}
+
+/**
+ * Get global options from the root command.
+ */
+export function getGlobalOptions(cmd: Command): GlobalOptions {
+  // Walk up to root command to get global options
+  let root = cmd;
+  while (root.parent) {
+    root = root.parent;
+  }
+  const opts = root.opts();
+  return {
+    validation: opts.validation ?? "strict",
+  };
+}
 
 const program = new Command();
 
 program
   .name("ticktick")
   .description("Command-line interface for TickTick")
-  .version("1.0.0");
+  .version("1.0.0")
+  .option(
+    "--validation <strategy>",
+    "API response validation strategy: strict (fail on errors), warn (log warnings, continue), off (skip validation)",
+    "strict"
+  );
 
 // Register all command groups
 program.addCommand(createAuthCommand());

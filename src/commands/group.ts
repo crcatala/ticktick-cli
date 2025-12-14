@@ -12,6 +12,7 @@ import {
   printGroupsTable,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createGroupCommand(): Command {
   const group = new Command("group").description("Manage project groups");
@@ -22,8 +23,9 @@ export function createGroupCommand(): Command {
     .description("List all project groups")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const groups = await client.getProjectGroups();
 
         if (options.json) {
@@ -42,8 +44,9 @@ export function createGroupCommand(): Command {
     .description("Create a new project group")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (name: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, name: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         const groupData = { name };
         const createdGroup = await client.createProjectGroup(groupData);
@@ -64,8 +67,9 @@ export function createGroupCommand(): Command {
     .option("-n, --name <name>", "New name")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the group first
         const groups = await client.getProjectGroups();
@@ -102,8 +106,9 @@ export function createGroupCommand(): Command {
     .description("Delete a project group")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the group first
         const groups = await client.getProjectGroups();

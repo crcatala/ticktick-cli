@@ -13,6 +13,7 @@ import {
   truncateId,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createProjectCommand(): Command {
   const project = new Command("project").description("Manage projects");
@@ -23,8 +24,9 @@ export function createProjectCommand(): Command {
     .description("List all projects")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const projects = await client.getProjects();
 
         if (options.json) {
@@ -43,8 +45,9 @@ export function createProjectCommand(): Command {
     .description("Show project details")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const projects = await client.getProjects();
         const foundProject = projects.find(
           (p) => p.id === id || p.id?.startsWith(id)
@@ -80,8 +83,9 @@ export function createProjectCommand(): Command {
     .description("Show inbox project ID")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const inboxId = await client.getInbox();
 
         if (!inboxId) {
@@ -106,8 +110,9 @@ export function createProjectCommand(): Command {
     .option("-g, --group <id>", "Project group ID")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (name: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, name: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         const projectData: Parameters<typeof client.createProject>[0] = { name };
 
@@ -141,8 +146,9 @@ export function createProjectCommand(): Command {
     .option("-g, --group <id>", "New group ID")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the project first
         const projects = await client.getProjects();
@@ -185,8 +191,9 @@ export function createProjectCommand(): Command {
     .description("Delete a project")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async (id: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the project first
         const projects = await client.getProjects();

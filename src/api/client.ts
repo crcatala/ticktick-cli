@@ -6,6 +6,22 @@
 import { getAuth } from "../config/config.js";
 import { AuthError, ApiError, ClientError } from "../utils/errors.js";
 import { BASE_URL, ENDPOINTS } from "./endpoints.js";
+import {
+  validateOne,
+  validateArray,
+  type ValidationStrategy,
+  DEFAULT_VALIDATION_STRATEGY,
+  TaskSchema,
+  ProjectSchema,
+  ProjectGroupSchema,
+  TagSchema,
+  UserProfileSchema,
+  UserStatusSchema,
+  UserStatsSchema,
+  BatchResponseSchema,
+  BatchOperationResponseSchema,
+  LoginResponseSchema,
+} from "../schemas/index.js";
 import type {
   Task,
   Project,
@@ -66,6 +82,14 @@ function generateDeviceId(): string {
 }
 
 /**
+ * Options for creating a TickTick client.
+ */
+export interface TickTickClientOptions {
+  debug?: boolean;
+  validation?: ValidationStrategy;
+}
+
+/**
  * TickTick API client class.
  */
 export class TickTickClient {
@@ -73,11 +97,13 @@ export class TickTickClient {
   private token: string;
   private deviceId: string;
   private debug: boolean;
+  private validation: ValidationStrategy;
 
-  constructor(username: string, token: string, debug = false) {
+  constructor(username: string, token: string, options: TickTickClientOptions = {}) {
     this.username = username;
     this.token = token;
-    this.debug = debug;
+    this.debug = options.debug ?? false;
+    this.validation = options.validation ?? DEFAULT_VALIDATION_STRATEGY;
     // Use a stable device ID for the lifetime of the client/session.
     // TickTick associates the session cookie with the X-Device payload;
     // regenerating this per-request causes the server to invalidate the session
@@ -165,7 +191,7 @@ export class TickTickClient {
       if (this.debug) {
         console.log(`[debug] Response data:`, JSON.stringify(data, null, 2).slice(0, 500));
       }
-      return data;
+      return data as T;
     }
 
     return {} as T;
@@ -179,21 +205,24 @@ export class TickTickClient {
    * Get user profile.
    */
   async getProfile(): Promise<UserProfile> {
-    return this.request<UserProfile>(ENDPOINTS.PROFILE);
+    const data = await this.request<unknown>(ENDPOINTS.PROFILE);
+    return validateOne(UserProfileSchema, data, this.validation, "UserProfile");
   }
 
   /**
    * Get user status (subscription info).
    */
   async getUserStatus(): Promise<UserStatus> {
-    return this.request<UserStatus>(ENDPOINTS.STATUS);
+    const data = await this.request<unknown>(ENDPOINTS.STATUS);
+    return validateOne(UserStatusSchema, data, this.validation, "UserStatus");
   }
 
   /**
    * Get user statistics.
    */
   async getUserStats(): Promise<UserStats> {
-    return this.request<UserStats>(ENDPOINTS.STATS);
+    const data = await this.request<unknown>(ENDPOINTS.STATS);
+    return validateOne(UserStatsSchema, data, this.validation, "UserStats");
   }
 
   // ============================================================
@@ -204,7 +233,8 @@ export class TickTickClient {
    * Get full state snapshot (all tasks, projects, tags, etc.).
    */
   async getBatch(): Promise<BatchResponse> {
-    return this.request<BatchResponse>(ENDPOINTS.BATCH);
+    const data = await this.request<unknown>(ENDPOINTS.BATCH);
+    return validateOne(BatchResponseSchema, data, this.validation, "BatchResponse");
   }
 
   // ============================================================
@@ -216,6 +246,7 @@ export class TickTickClient {
    */
   async getTasks(): Promise<Task[]> {
     const batch = await this.getBatch();
+    // Tasks are already validated as part of BatchResponse
     return batch.syncTaskBean?.update ?? [];
   }
 
@@ -230,7 +261,8 @@ export class TickTickClient {
     projectId?: string
   ): Promise<Task[]> {
     const endpoint = `${ENDPOINTS.CLOSED_TASKS}?status=${status}`;
-    const tasks = await this.request<Task[]>(endpoint);
+    const data = await this.request<unknown>(endpoint);
+    const tasks = validateArray(TaskSchema, data, this.validation, "Task");
 
     if (projectId) {
       return tasks.filter((t) => t.projectId === projectId);
@@ -249,12 +281,18 @@ export class TickTickClient {
       id: crypto.randomUUID(),
     };
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,
       {
         method: "POST",
         body: { add: [taskWithId] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -278,12 +316,18 @@ export class TickTickClient {
    * Note: API doesn't return full task object; refetch if you need all current fields.
    */
   async updateTask(task: TaskUpdate): Promise<Task> {
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,
       {
         method: "POST",
         body: { update: [task] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -308,12 +352,18 @@ export class TickTickClient {
   async deleteTasks(taskIds: string[]): Promise<void> {
     const deletes = taskIds.map((taskId) => ({ taskId }));
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,
       {
         method: "POST",
         body: { delete: deletes },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -374,6 +424,7 @@ export class TickTickClient {
    */
   async getProjects(): Promise<Project[]> {
     const batch = await this.getBatch();
+    // Projects are already validated as part of BatchResponse
     return batch.projectProfiles ?? [];
   }
 
@@ -395,12 +446,18 @@ export class TickTickClient {
       id: crypto.randomUUID(),
     };
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT,
       {
         method: "POST",
         body: { add: [projectWithId] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -423,12 +480,18 @@ export class TickTickClient {
    * Returns the updated project data with etag if available.
    */
   async updateProject(project: ProjectUpdate): Promise<Project> {
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT,
       {
         method: "POST",
         body: { update: [project] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -453,12 +516,18 @@ export class TickTickClient {
   async deleteProjects(projectIds: string[]): Promise<void> {
     const deletes = projectIds.map((id) => ({ id }));
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT,
       {
         method: "POST",
         body: { delete: deletes },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -478,6 +547,7 @@ export class TickTickClient {
    */
   async getProjectGroups(): Promise<ProjectGroup[]> {
     const batch = await this.getBatch();
+    // Project groups are already validated as part of BatchResponse
     return batch.projectGroups ?? [];
   }
 
@@ -491,12 +561,18 @@ export class TickTickClient {
       id: crypto.randomUUID(),
     };
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT_GROUP,
       {
         method: "POST",
         body: { add: [groupWithId] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -519,12 +595,18 @@ export class TickTickClient {
    * Returns the updated group data with etag if available.
    */
   async updateProjectGroup(group: ProjectGroupUpdate): Promise<ProjectGroup> {
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT_GROUP,
       {
         method: "POST",
         body: { update: [group] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -549,12 +631,18 @@ export class TickTickClient {
   async deleteProjectGroups(groupIds: string[]): Promise<void> {
     const deletes = groupIds.map((id) => ({ id }));
 
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT_GROUP,
       {
         method: "POST",
         body: { delete: deletes },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -574,6 +662,7 @@ export class TickTickClient {
    */
   async getTags(): Promise<Tag[]> {
     const batch = await this.getBatch();
+    // Tags are already validated as part of BatchResponse
     return batch.tags ?? [];
   }
 
@@ -582,12 +671,18 @@ export class TickTickClient {
    * Returns the tag with etag if available.
    */
   async createTag(tag: TagCreate): Promise<Tag> {
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TAG,
       {
         method: "POST",
         body: { add: [tag] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -611,12 +706,18 @@ export class TickTickClient {
    * Returns the updated tag data with etag if available.
    */
   async updateTag(tag: TagUpdate): Promise<Tag> {
-    const response = await this.request<BatchOperationResponse>(
+    const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TAG,
       {
         method: "POST",
         body: { update: [tag] },
       }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
     );
 
     if (response.id2error && Object.keys(response.id2error).length > 0) {
@@ -656,17 +757,28 @@ export class TickTickClient {
 }
 
 /**
- * Get a configured client instance from stored auth.
- * @param debug - Enable debug logging for requests/responses
+ * Options for getting a client instance.
  */
-export async function getClient(debug = false): Promise<TickTickClient> {
+export interface GetClientOptions {
+  debug?: boolean;
+  validation?: ValidationStrategy;
+}
+
+/**
+ * Get a configured client instance from stored auth.
+ * @param options - Client options (debug mode, validation strategy)
+ */
+export async function getClient(options: GetClientOptions = {}): Promise<TickTickClient> {
   const auth = await getAuth();
   if (!auth) {
     throw new AuthError("Not logged in. Run 'ticktick auth login' first.");
   }
   // Allow debug mode via environment variable
-  const debugMode = debug || process.env.TICKTICK_DEBUG === "1";
-  return new TickTickClient(auth.username, auth.token, debugMode);
+  const debugMode = options.debug || process.env.TICKTICK_DEBUG === "1";
+  return new TickTickClient(auth.username, auth.token, {
+    debug: debugMode,
+    validation: options.validation,
+  });
 }
 
 /**
@@ -676,12 +788,14 @@ export async function getClient(debug = false): Promise<TickTickClient> {
  * @param password - Account password
  * @param totpCode - Optional TOTP code for 2FA
  * @param verbose - Enable debug logging
+ * @param validation - Validation strategy for response
  */
 export async function login(
   username: string,
   password: string,
   totpCode?: string,
-  verbose = false
+  verbose = false,
+  validation: ValidationStrategy = DEFAULT_VALIDATION_STRATEGY
 ): Promise<LoginResponse> {
   const body: Record<string, string> = { username, password };
   if (totpCode) {
@@ -730,12 +844,15 @@ export async function login(
     console.log(`[debug] Response body: ${text.slice(0, 500)}`);
   }
 
-  let result: LoginResponse;
+  let rawResult: unknown;
   try {
-    result = JSON.parse(text) as LoginResponse;
+    rawResult = JSON.parse(text);
   } catch {
     throw new ApiError(response.status, text);
   }
+
+  // Validate the response
+  const result = validateOne(LoginResponseSchema, rawResult, validation, "LoginResponse");
 
   // Check for error in response body (TickTick returns 500 for auth failures)
   if (result.errorCode) {
