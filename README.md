@@ -190,15 +190,18 @@ Use `ticktick COMMAND --help` for detailed options.
 
 ## Configuration
 
-Configuration is stored in `~/.config/ticktick-cli/config.toml`:
+Configuration is stored in `~/.config/ticktick-cli/config.json`:
 
-```toml
-[auth]
-username = "your@email.com"
-storage = "keyring"  # or "config" for plaintext
-
-[defaults]
-project = "inbox_id"  # Optional default project for new tasks
+```json
+{
+  "auth": {
+    "username": "your@email.com",
+    "storage": "keyring"
+  },
+  "defaults": {
+    "project": "inbox_id"
+  }
+}
 ```
 
 **Security Note:** By default, session tokens are stored in your system keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you use `--use-config`, the token is stored in plaintext in the config file with 600 permissions.

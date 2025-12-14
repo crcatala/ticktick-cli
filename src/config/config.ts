@@ -1,18 +1,17 @@
 /**
  * Configuration management for TickTick CLI.
  *
- * Handles reading and writing configuration to ~/.config/ticktick-cli/config.toml.
+ * Handles reading and writing configuration to ~/.config/ticktick-cli/config.json.
  * Supports both secure keyring storage (default) and plaintext config storage.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import * as TOML from "smol-toml";
 import { getToken, setToken, deleteToken } from "./credentials.js";
 import { ConfigError } from "../utils/errors.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "ticktick-cli");
-const CONFIG_FILE = join(CONFIG_DIR, "config.toml");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
 export interface AuthConfig {
   username: string;
@@ -48,7 +47,7 @@ export function loadConfig(): Config {
 
   try {
     const content = readFileSync(CONFIG_FILE, "utf-8");
-    return TOML.parse(content) as Config;
+    return JSON.parse(content) as Config;
   } catch (error) {
     throw new ConfigError(`Failed to parse config file: ${error}`);
   }
@@ -60,7 +59,7 @@ export function loadConfig(): Config {
 export function saveConfig(config: Config): void {
   ensureConfigDir();
 
-  const content = TOML.stringify(config as Record<string, unknown>);
+  const content = JSON.stringify(config, null, 2);
   writeFileSync(CONFIG_FILE, content, { mode: 0o600 });
   chmodSync(CONFIG_FILE, 0o600);
 }
