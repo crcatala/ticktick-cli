@@ -34,12 +34,17 @@ interface RequestOptions {
 }
 
 /**
- * Generate a random device ID (24-char hex string like BSON ObjectId).
+ * Generate a unique device ID for the X-Device header.
+ * TickTick uses this to identify client sessions.
+ * Format: 24-char hex string (similar to MongoDB ObjectId).
  */
 function generateDeviceId(): string {
-  return Array.from({ length: 24 }, () =>
+  const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
+  const random = Array.from({ length: 10 }, () =>
     Math.floor(Math.random() * 16).toString(16)
   ).join("");
+  const counter = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
+  return timestamp + random + counter;
 }
 
 /**
@@ -56,13 +61,14 @@ export class TickTickClient {
 
   /**
    * Get default headers for API requests.
+   * TickTick's V2 API requires browser-like headers and session cookie.
    */
   private get headers(): Record<string, string> {
     return {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
-      Cookie: `t=${this.token}`,
-      "x-device": JSON.stringify({
+      "Cookie": `t=${this.token}`,
+      "X-Device": JSON.stringify({
         platform: "web",
         version: 6430,
         id: generateDeviceId(),
@@ -536,13 +542,12 @@ export async function login(
   }
 
   const url = `${BASE_URL}${ENDPOINTS.LOGIN}`;
+  // TickTick's undocumented V2 API requires browser-like headers.
+  // X-Device identifies the client; version 6430 is the current web app version.
   const headers: Record<string, string> = {
-    "Accept": "*/*",
-    "Accept-Encoding": "gzip, deflate",
-    "Connection": "keep-alive",
     "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
     "Content-Type": "application/json",
-    "x-device": JSON.stringify({
+    "X-Device": JSON.stringify({
       platform: "web",
       version: 6430,
       id: generateDeviceId(),
