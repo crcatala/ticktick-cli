@@ -30,37 +30,50 @@ async function prompt(message: string, hidden = false): Promise<string> {
   });
 
   return new Promise((resolve) => {
-    if (hidden) {
-      // For passwords, we need to handle it differently
-      process.stdout.write(message);
-      let input = "";
+    if (hidden && process.stdin.isTTY) {
+      // Hidden input for TTY
+      const stdin = process.stdin;
+      const stdout = process.stdout;
 
-      process.stdin.setRawMode?.(true);
-      process.stdin.resume();
-      process.stdin.setEncoding("utf8");
+      stdout.write(message);
+
+      let input = "";
+      stdin.setRawMode(true);
+      stdin.resume();
+      stdin.setEncoding("utf8");
 
       const onData = (char: string) => {
-        if (char === "\n" || char === "\r") {
-          process.stdin.setRawMode?.(false);
-          process.stdin.removeListener("data", onData);
-          console.log();
-          rl.close();
-          resolve(input);
-        } else if (char === "\u0003") {
-          // Ctrl+C
-          process.exit(1);
-        } else if (char === "\u007F") {
-          // Backspace
-          if (input.length > 0) {
-            input = input.slice(0, -1);
-          }
-        } else {
-          input += char;
+        switch (char) {
+          case "\n":
+          case "\r":
+          case "\u0004": // Ctrl+D
+            stdin.setRawMode(false);
+            stdin.pause();
+            stdin.removeListener("data", onData);
+            stdout.write("\n");
+            rl.close();
+            resolve(input);
+            break;
+          case "\u0003": // Ctrl+C
+            stdin.setRawMode(false);
+            stdout.write("\n");
+            process.exit(1);
+            break;
+          case "\u007F": // Backspace
+          case "\b":
+            if (input.length > 0) {
+              input = input.slice(0, -1);
+            }
+            break;
+          default:
+            input += char;
+            break;
         }
       };
 
-      process.stdin.on("data", onData);
+      stdin.on("data", onData);
     } else {
+      // Non-TTY or non-hidden - use standard readline
       rl.question(message, (answer) => {
         rl.close();
         resolve(answer);
@@ -156,7 +169,9 @@ export function createAuthCommand(): Command {
         const storageType = options.useConfig ? "config file" : "system keyring";
         printInfo(`Token stored in: ${storageType}`);
       } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof AuthError) {
+          printError(error.message);
+        } else if (error instanceof ApiError) {
           if (error.status === 401) {
             printError("Invalid username or password");
           } else if (error.body.includes("2fa") || error.body.includes("totp")) {
