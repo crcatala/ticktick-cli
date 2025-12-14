@@ -514,34 +514,55 @@ export async function getClient(): Promise<TickTickClient> {
  * @param username - TickTick username/email
  * @param password - Account password
  * @param totpCode - Optional TOTP code for 2FA
+ * @param verbose - Enable debug logging
  */
 export async function login(
   username: string,
   password: string,
-  totpCode?: string
+  totpCode?: string,
+  verbose = false
 ): Promise<LoginResponse> {
   const body: Record<string, string> = { username, password };
   if (totpCode) {
     body.token = totpCode;
   }
 
-  const response = await fetch(`${BASE_URL}${ENDPOINTS.LOGIN}`, {
+  const url = `${BASE_URL}${ENDPOINTS.LOGIN}`;
+  const headers = {
+    "Content-Type": "application/json",
+    "x-device": JSON.stringify({
+      platform: "web",
+      os: "Linux",
+      device: "Chrome",
+      name: "ticktick-cli",
+      version: 5070,
+    }),
+  };
+
+  if (verbose) {
+    console.log(`[debug] POST ${url}`);
+    console.log(`[debug] Headers: ${JSON.stringify(headers, null, 2)}`);
+    console.log(`[debug] Body: ${JSON.stringify({ ...body, password: `[${password.length} chars]` })}`);
+  }
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-device": JSON.stringify({
-        platform: "web",
-        os: "Linux",
-        device: "Chrome",
-        name: "ticktick-cli",
-        version: 5070,
-      }),
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
+  if (verbose) {
+    console.log(`[debug] Response status: ${response.status}`);
+    console.log(`[debug] Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+  }
+
   // Parse response body
   const text = await response.text();
+
+  if (verbose) {
+    console.log(`[debug] Response body: ${text.slice(0, 500)}`);
+  }
+
   let result: LoginResponse;
   try {
     result = JSON.parse(text) as LoginResponse;
@@ -551,6 +572,9 @@ export async function login(
 
   // Check for error in response body (TickTick returns 500 for auth failures)
   if (result.errorCode) {
+    if (verbose) {
+      console.log(`[debug] Error code: ${result.errorCode}`);
+    }
     if (result.errorCode === "username_password_not_match") {
       throw new AuthError("Invalid username or password");
     }
@@ -575,6 +599,10 @@ export async function login(
     if (tokenMatch) {
       result.token = tokenMatch[1];
     }
+  }
+
+  if (verbose) {
+    console.log(`[debug] Token received: ${result.token ? "yes" : "no"}`);
   }
 
   return result;

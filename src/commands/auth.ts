@@ -21,64 +21,20 @@ import {
 import { AuthError, ApiError } from "../utils/errors.js";
 
 /**
- * Prompt for input (with optional hidden input for passwords).
+ * Prompt for input.
+ * Note: Password hiding is not reliably supported in all terminals with Bun.
  */
-async function prompt(message: string, hidden = false): Promise<string> {
+async function prompt(message: string): Promise<string> {
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    if (hidden && process.stdin.isTTY) {
-      // Hidden input for TTY
-      const stdin = process.stdin;
-      const stdout = process.stdout;
-
-      stdout.write(message);
-
-      let input = "";
-      stdin.setRawMode(true);
-      stdin.resume();
-      stdin.setEncoding("utf8");
-
-      const onData = (char: string) => {
-        switch (char) {
-          case "\n":
-          case "\r":
-          case "\u0004": // Ctrl+D
-            stdin.setRawMode(false);
-            stdin.pause();
-            stdin.removeListener("data", onData);
-            stdout.write("\n");
-            rl.close();
-            resolve(input);
-            break;
-          case "\u0003": // Ctrl+C
-            stdin.setRawMode(false);
-            stdout.write("\n");
-            process.exit(1);
-            break;
-          case "\u007F": // Backspace
-          case "\b":
-            if (input.length > 0) {
-              input = input.slice(0, -1);
-            }
-            break;
-          default:
-            input += char;
-            break;
-        }
-      };
-
-      stdin.on("data", onData);
-    } else {
-      // Non-TTY or non-hidden - use standard readline
-      rl.question(message, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    }
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
   });
 }
 
@@ -108,14 +64,23 @@ export function createAuthCommand(): Command {
       "--use-config",
       "Store token in plaintext config instead of keyring (insecure)"
     )
+    .option("-v, --verbose", "Show detailed debug output")
     .action(async (options) => {
+      const verbose = options.verbose ?? false;
+
       try {
         let username = options.username;
         if (!username) {
           username = await prompt("Username/Email: ");
         }
 
-        const password = await prompt("Password: ", true);
+        const password = await prompt("Password (visible): ");
+
+        if (verbose) {
+          printInfo(`[debug] Username: ${username}`);
+          printInfo(`[debug] Password length: ${password.length} chars`);
+          printInfo(`[debug] Password empty: ${password.length === 0}`);
+        }
 
         if (options.useConfig) {
           printWarning(
@@ -137,8 +102,12 @@ export function createAuthCommand(): Command {
           }
         }
 
+        if (verbose) {
+          printInfo(`[debug] TOTP code: ${totpCode ?? "(none)"}`);
+        }
+
         // Attempt login
-        const result = await login(username, password, totpCode);
+        const result = await login(username, password, totpCode, verbose);
 
         if (result.need2FA && !totpCode) {
           printError(
