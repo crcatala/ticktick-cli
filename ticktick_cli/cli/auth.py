@@ -66,7 +66,6 @@ def login(
         _enable_http_logging()
 
     from pyticktick import Client
-    from pyticktick.settings import Settings
 
     # Prompt for credentials interactively (never accept password via CLI args)
     if not username:
@@ -81,17 +80,16 @@ def login(
     output.print_info("Logging in to TickTick...")
 
     try:
-        # Create settings and attempt login
-        settings = Settings(
+        # Create client (Client now extends Settings directly)
+        client = Client(
             v2_username=username,
             v2_password=password,
             v2_totp_secret=totp_secret,
         )
-        client = Client(settings=settings)
 
         # Get the token from the client's session
         # The token is set after successful sign-on
-        token = settings.v2_token
+        token = client.v2_token
 
         if not token:
             output.print_error("Login failed: No token received")
@@ -100,9 +98,15 @@ def login(
         # Save credentials (keyring by default, config if --use-config)
         config.set_auth(username, token, use_config=use_config)
 
-        # Verify by fetching profile
-        profile = client.get_user_profile_v2()
-        output.print_success(f"Logged in as {profile.name or profile.username}")
+        # Verify by fetching profile (may fail due to model validation issues)
+        try:
+            profile = client.get_profile_v2()
+            display_name = profile.name or profile.username
+        except ValidationError:
+            # Profile fetch failed but login succeeded
+            display_name = username
+
+        output.print_success(f"Logged in as {display_name}")
 
         storage_type = "config file" if use_config else "system keyring"
         output.print_info(f"Token stored in: {storage_type}")
@@ -188,6 +192,27 @@ def status(
                     "Token Storage": storage_type or "unknown",
                 },
                 ["Name", "Email", "User ID", "Token Storage"],
+            )
+    except ValidationError:
+        # Profile model validation failed but auth is valid
+        if json_output:
+            output.print_json(
+                {
+                    "authenticated": True,
+                    "username": auth["username"],
+                    "storage": storage_type,
+                    "profile": None,
+                    "note": "Profile fetch failed due to API model mismatch",
+                }
+            )
+        else:
+            output.print_success(f"Logged in as {auth['username']}")
+            output.print_key_value(
+                {
+                    "Token Storage": storage_type or "unknown",
+                    "Note": "Profile details unavailable (API model mismatch)",
+                },
+                ["Token Storage", "Note"],
             )
     except HTTPStatusError as e:
         if json_output:

@@ -7,8 +7,9 @@ handling authentication from stored config.
 from functools import cached_property
 from typing import Any
 
+import httpx
+from pydantic import ValidationError
 from pyticktick import Client as PyTickTickClient
-from pyticktick.settings import Settings
 
 from ticktick_cli.config import get_auth
 
@@ -53,32 +54,60 @@ class Client:
     @cached_property
     def _client(self) -> PyTickTickClient:
         """Get the underlying pyticktick client."""
-        settings = Settings(v2_username=self._username, v2_token=self._token)
-        return PyTickTickClient(settings=settings)
+        # Client now extends Settings directly in new pyticktick
+        # override_forbid_extra=True allows extra fields in API responses
+        return PyTickTickClient(
+            v2_username=self._username,
+            v2_token=self._token,
+            override_forbid_extra=True,
+        )
+
+    def _raw_get_v2(self, endpoint: str) -> dict[str, Any]:
+        """Make a raw GET request to v2 API, bypassing pyticktick validation."""
+        # Use the same headers and cookies as pyticktick client
+        resp = httpx.get(
+            url=f"https://api.ticktick.com/api/v2{endpoint}",
+            headers=self._client.v2_headers,
+            cookies=self._client.v2_cookies,
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     # User methods
     def get_profile(self) -> dict[str, Any]:
         """Get user profile."""
-        return self._client.get_user_profile_v2().model_dump()
+        return self._client.get_profile_v2().model_dump()
 
     def get_user_status(self) -> dict[str, Any]:
         """Get user status (subscription info)."""
-        return self._client.get_user_status_v2().model_dump()
+        return self._client.get_status_v2().model_dump()
 
     def get_user_stats(self) -> dict[str, Any]:
         """Get user statistics."""
-        return self._client.get_user_statistics_v2().model_dump()
+        return self._client.get_statistics_v2().model_dump()
 
     # Sync methods
     def get_batch(self) -> dict[str, Any]:
         """Get full state snapshot (all tasks, projects, tags, etc.)."""
-        return self._client.get_batch_v2().model_dump()
+        try:
+            return self._client.get_batch_v2().model_dump()
+        except ValidationError:
+            # Fall back to raw API call if pyticktick validation fails
+            return self._raw_get_v2("/batch/check/0")
+
+    def _get_batch_raw(self) -> dict[str, Any]:
+        """Get batch data, falling back to raw API if validation fails."""
+        try:
+            return self._client.get_batch_v2().model_dump()
+        except ValidationError:
+            return self._raw_get_v2("/batch/check/0")
 
     # Task methods
     def get_tasks(self) -> list[dict[str, Any]]:
         """Get all active tasks."""
-        batch = self._client.get_batch_v2()
-        return [t.model_dump() for t in (batch.sync_task_bean.update or [])]
+        batch = self._get_batch_raw()
+        tasks = batch.get("syncTaskBean", {}).get("update", [])
+        return tasks if isinstance(tasks, list) else []
 
     def get_closed_tasks(
         self, status: str = "Completed", project_id: str | None = None
@@ -198,14 +227,14 @@ class Client:
     # Project methods
     def get_projects(self) -> list[dict[str, Any]]:
         """Get all projects."""
-        batch = self._client.get_batch_v2()
-        projects = [p.model_dump() for p in (batch.project_profiles or [])]
-        return projects
+        batch = self._get_batch_raw()
+        projects = batch.get("projectProfiles", [])
+        return projects if isinstance(projects, list) else []
 
-    def get_inbox(self) -> dict[str, Any] | None:
-        """Get the inbox project."""
-        batch = self._client.get_batch_v2()
-        return batch.inbox_id
+    def get_inbox(self) -> str | None:
+        """Get the inbox project ID."""
+        batch = self._get_batch_raw()
+        return batch.get("inboxId")
 
     def create_project(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new project.
@@ -262,8 +291,9 @@ class Client:
     # Project Group methods
     def get_project_groups(self) -> list[dict[str, Any]]:
         """Get all project groups."""
-        batch = self._client.get_batch_v2()
-        return [g.model_dump() for g in (batch.project_groups or [])]
+        batch = self._get_batch_raw()
+        groups = batch.get("projectGroups", [])
+        return groups if isinstance(groups, list) else []
 
     def create_project_group(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new project group.
@@ -320,8 +350,9 @@ class Client:
     # Tag methods
     def get_tags(self) -> list[dict[str, Any]]:
         """Get all tags."""
-        batch = self._client.get_batch_v2()
-        return [t.model_dump() for t in (batch.tags or [])]
+        batch = self._get_batch_raw()
+        tags = batch.get("tags", [])
+        return tags if isinstance(tags, list) else []
 
     def create_tag(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new tag.

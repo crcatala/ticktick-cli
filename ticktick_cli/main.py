@@ -1,8 +1,18 @@
 """Main entry point for the TickTick CLI."""
 
+import warnings
+
 import typer
+from loguru import logger
 
 from ticktick_cli.cli import auth, group, project, sync, tag, task, user
+
+# Suppress pyticktick v1 warnings (we only use v2 API)
+warnings.filterwarnings("ignore", message=".*v1_client_id.*")
+warnings.filterwarnings("ignore", message=".*Cannot signon to v1.*")
+
+# Suppress loguru output from pyticktick
+logger.disable("pyticktick")
 
 app = typer.Typer(
     name="ticktick",
