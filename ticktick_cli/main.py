@@ -8,6 +8,7 @@ app = typer.Typer(
     name="ticktick",
     help="A CLI for TickTick task management.",
     no_args_is_help=True,
+    rich_markup_mode=None,  # Plain text output for agent/automation compatibility
 )
 
 # Register command groups
