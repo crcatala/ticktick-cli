@@ -3,6 +3,8 @@
 from typing import Annotated
 
 import typer
+from httpx import HTTPStatusError
+from pydantic import ValidationError
 
 from ticktick_cli import config, output
 
@@ -15,28 +17,38 @@ def login(
         str | None,
         typer.Option("--username", "-u", help="TickTick username/email"),
     ] = None,
-    password: Annotated[
-        str | None,
-        typer.Option("--password", "-p", help="TickTick password", hide_input=True),
-    ] = None,
     totp_secret: Annotated[
         str | None,
         typer.Option("--totp-secret", help="TOTP secret for 2FA (base32 encoded)"),
     ] = None,
+    use_config: Annotated[
+        bool,
+        typer.Option(
+            "--use-config",
+            help="Store token in plaintext config instead of keyring (insecure)",
+        ),
+    ] = False,
 ) -> None:
     """Log in to TickTick.
 
-    Prompts for username and password if not provided.
+    Prompts for username and password interactively.
     Handles 2FA if enabled on the account.
+
+    By default, stores the session token in your system keyring for security.
+    Use --use-config to store in plaintext config file instead (not recommended).
     """
     from pyticktick import Client
     from pyticktick.settings import Settings
 
-    # Prompt for credentials if not provided
+    # Prompt for credentials interactively (never accept password via CLI args)
     if not username:
         username = typer.prompt("Username/Email")
-    if not password:
-        password = typer.prompt("Password", hide_input=True)
+    password = typer.prompt("Password", hide_input=True)
+
+    if use_config:
+        output.print_warning(
+            "Using plaintext config storage. Token will be stored unencrypted."
+        )
 
     output.print_info("Logging in to TickTick...")
 
@@ -57,14 +69,23 @@ def login(
             output.print_error("Login failed: No token received")
             raise typer.Exit(1)
 
-        # Save credentials
-        config.set_auth(username, token)
+        # Save credentials (keyring by default, config if --use-config)
+        config.set_auth(username, token, use_config=use_config)
 
         # Verify by fetching profile
         profile = client.get_user_profile_v2()
         output.print_success(f"Logged in as {profile.name or profile.username}")
 
-    except Exception as e:
+        storage_type = "config file" if use_config else "system keyring"
+        output.print_info(f"Token stored in: {storage_type}")
+
+    except HTTPStatusError as e:
+        output.print_error(f"HTTP error: {e.response.status_code} - {e.response.text}")
+        raise typer.Exit(1)
+    except ValidationError as e:
+        output.print_error(f"Invalid credentials format: {e}")
+        raise typer.Exit(1)
+    except ValueError as e:
         error_msg = str(e)
         if "totp" in error_msg.lower() or "2fa" in error_msg.lower():
             if not totp_secret:
@@ -76,13 +97,16 @@ def login(
         else:
             output.print_error(f"Login failed: {error_msg}")
         raise typer.Exit(1)
+    except ConnectionError as e:
+        output.print_error(f"Connection error: {e}")
+        raise typer.Exit(1)
 
 
 @app.command()
 def logout() -> None:
     """Log out from TickTick.
 
-    Clears stored credentials.
+    Clears stored credentials from both keyring and config file.
     """
     auth = config.get_auth()
     if not auth:
@@ -102,6 +126,8 @@ def status(
 ) -> None:
     """Show authentication status and user info."""
     auth = config.get_auth()
+    storage_type = config.get_storage_type()
+
     if not auth:
         if json_output:
             output.print_json({"authenticated": False})
@@ -120,6 +146,7 @@ def status(
                 {
                     "authenticated": True,
                     "username": auth["username"],
+                    "storage": storage_type,
                     "profile": profile,
                 }
             )
@@ -130,10 +157,19 @@ def status(
                     "Name": profile.get("name", "-"),
                     "Email": profile.get("username", "-"),
                     "User ID": profile.get("id", "-"),
+                    "Token Storage": storage_type or "unknown",
                 },
-                ["Name", "Email", "User ID"],
+                ["Name", "Email", "User ID", "Token Storage"],
             )
-    except Exception as e:
+    except HTTPStatusError as e:
+        if json_output:
+            output.print_json(
+                {"authenticated": False, "error": f"HTTP {e.response.status_code}"}
+            )
+        else:
+            output.print_warning(f"Token may be expired: HTTP {e.response.status_code}")
+            output.print_info("Run 'ticktick auth login' to re-authenticate.")
+    except (ConnectionError, ValueError) as e:
         if json_output:
             output.print_json({"authenticated": False, "error": str(e)})
         else:
