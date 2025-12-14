@@ -36,13 +36,22 @@ interface RequestOptions {
 /**
  * Generate a unique device ID for the X-Device header.
  * TickTick uses this to identify client sessions.
- * Format: 24-char hex string (similar to MongoDB ObjectId).
+ *
+ * Format: 24-char hex string matching MongoDB ObjectId structure:
+ * - Bytes 0-3 (8 hex chars): Unix timestamp in seconds
+ * - Bytes 4-8 (10 hex chars): Random value
+ * - Bytes 9-11 (6 hex chars): Counter
+ *
+ * Total: 12 bytes = 24 hex characters
  */
 function generateDeviceId(): string {
+  // 4 bytes (8 hex chars): Unix timestamp
   const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
+  // 5 bytes (10 hex chars): Random value
   const random = Array.from({ length: 10 }, () =>
     Math.floor(Math.random() * 16).toString(16)
   ).join("");
+  // 3 bytes (6 hex chars): Counter
   const counter = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
   return timestamp + random + counter;
 }
