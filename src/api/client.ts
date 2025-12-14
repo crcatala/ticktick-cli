@@ -540,15 +540,36 @@ export async function login(
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const text = await response.text();
+  // Parse response body
+  const text = await response.text();
+  let result: LoginResponse;
+  try {
+    result = JSON.parse(text) as LoginResponse;
+  } catch {
     throw new ApiError(response.status, text);
   }
 
-  // Token is returned in Set-Cookie header
-  const setCookie = response.headers.get("set-cookie");
-  const result = (await response.json()) as LoginResponse;
+  // Check for error in response body (TickTick returns 500 for auth failures)
+  if (result.errorCode) {
+    if (result.errorCode === "username_password_not_match") {
+      throw new AuthError("Invalid username or password");
+    }
+    if (result.errorCode === "need_2fa" || result.errorCode === "totp_verify_failed") {
+      result.need2FA = true;
+      if (!totpCode) {
+        return result;
+      }
+      throw new AuthError("2FA verification failed");
+    }
+    throw new ApiError(response.status, result.errorCode);
+  }
 
+  if (!response.ok) {
+    throw new ApiError(response.status, text);
+  }
+
+  // Token can be in response body or Set-Cookie header
+  const setCookie = response.headers.get("set-cookie");
   if (setCookie) {
     const tokenMatch = setCookie.match(/t=([^;]+)/);
     if (tokenMatch) {
