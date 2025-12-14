@@ -262,7 +262,7 @@ export function createAuthCommand(): Command {
             {
               Name: profile.name ?? "-",
               Email: profile.username ?? "-",
-              "User ID": profile.id ?? "-",
+              "User ID": profile.id ?? profile.extenalId ?? "-",
               "Token Storage": storageType ?? "unknown",
             },
             ["Name", "Email", "User ID", "Token Storage"]

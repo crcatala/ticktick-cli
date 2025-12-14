@@ -80,6 +80,7 @@ export interface Tag {
 
 export interface UserProfile {
   id?: string;
+  extenalId?: string; // Note: typo in TickTick API - "extenal" not "external"
   username?: string;
   name?: string;
   email?: string;
