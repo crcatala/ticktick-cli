@@ -11,6 +11,27 @@ from ticktick_cli import config, output
 app = typer.Typer(help="Manage authentication")
 
 
+def _enable_http_logging() -> None:
+    """Enable verbose HTTP request/response logging for debugging."""
+    import httpx
+
+    _original_send = httpx.Client.send
+
+    def _logging_send(self, request, **kwargs):
+        output.print_info(f"\n>>> {request.method} {request.url}")
+        output.print_info(f"    Headers: {dict(request.headers)}")
+
+        response = _original_send(self, request, **kwargs)
+
+        output.print_info(f"<<< {response.status_code}")
+        if response.status_code >= 400:
+            output.print_info(f"    Response: {response.text[:500]}")
+
+        return response
+
+    httpx.Client.send = _logging_send
+
+
 @app.command()
 def login(
     username: Annotated[
@@ -28,6 +49,10 @@ def login(
             help="Store token in plaintext config instead of keyring (insecure)",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show HTTP request/response details"),
+    ] = False,
 ) -> None:
     """Log in to TickTick.
 
@@ -37,6 +62,9 @@ def login(
     By default, stores the session token in your system keyring for security.
     Use --use-config to store in plaintext config file instead (not recommended).
     """
+    if verbose:
+        _enable_http_logging()
+
     from pyticktick import Client
     from pyticktick.settings import Settings
 
