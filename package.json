@@ -1,0 +1,26 @@
+{
+  "name": "ticktick-cli",
+  "version": "1.0.0",
+  "description": "Command-line interface for TickTick",
+  "type": "module",
+  "bin": {
+    "ticktick": "./dist/ticktick"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --compile --outfile dist/ticktick",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "smol-toml": "^1.3.1",
+    "cli-table3": "^0.6.5",
+    "picocolors": "^1.1.1",
+    "keytar": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.2"
+  }
+}

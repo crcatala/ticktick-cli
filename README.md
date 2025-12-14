@@ -1,19 +1,34 @@
 # ticktick-cli
 
-A command-line interface for [TickTick](https://ticktick.com) task management, built on the [pyticktick](https://github.com/sebpretzer/pyticktick) library.
+A command-line interface for [TickTick](https://ticktick.com) task management, built with TypeScript and Bun.
 
 ## Installation
 
-```bash
-pip install ticktick-cli
-```
+### Download Binary
 
-Or install from source:
+Download the pre-built binary for your platform from the [releases page](https://github.com/crcatala/ticktick-cli/releases).
+
+### Build from Source
+
+Requires [Bun](https://bun.sh) v1.0+
 
 ```bash
 git clone https://github.com/crcatala/ticktick-cli.git
 cd ticktick-cli
-pip install -e .
+bun install
+bun run build
+```
+
+The compiled binary will be at `./dist/ticktick`.
+
+### Development
+
+```bash
+# Run directly with Bun
+bun run dev [command]
+
+# Or use the source entry point
+bun run src/index.ts [command]
 ```
 
 ## Quick Start
@@ -24,10 +39,10 @@ pip install -e .
 ticktick auth login
 ```
 
-You'll be prompted for your TickTick username and password. If you have 2FA enabled, provide your TOTP secret:
+You'll be prompted for your TickTick username and password. If you have 2FA enabled, provide your TOTP code:
 
 ```bash
-ticktick auth login --totp-secret YOUR_TOTP_SECRET
+ticktick auth login --totp-code 123456
 ```
 
 By default, your session token is stored securely in your system keyring. If you prefer plaintext storage (not recommended), use:
@@ -45,7 +60,7 @@ ticktick task list
 ### 3. Add a Task
 
 ```bash
-ticktick task add "Buy groceries" --priority 3 --due 2025-01-20
+ticktick task add "Buy groceries" --priority high --due tomorrow
 ```
 
 ## Common Workflows
@@ -56,11 +71,11 @@ ticktick task add "Buy groceries" --priority 3 --due 2025-01-20
 # See all active tasks
 ticktick task list
 
-# See tasks due today (filter by project)
+# See tasks in a specific project
 ticktick task list --project PROJECT_ID
 
-# Mark tasks as done
-ticktick task done TASK_ID_1 TASK_ID_2
+# Mark a task as done
+ticktick task done TASK_ID
 ```
 
 ### Quick Task Entry
@@ -72,10 +87,11 @@ ticktick task add "Call mom"
 # Task with all options
 ticktick task add "Prepare presentation" \
   --project PROJECT_ID \
-  --priority 5 \
+  --priority high \
   --due 2025-01-15 \
-  --tags "work,urgent" \
-  --desc "Q1 sales review slides"
+  --tag work \
+  --tag urgent \
+  --content "Q1 sales review slides"
 ```
 
 ### Project Management
@@ -97,9 +113,11 @@ ticktick project inbox
 # List all tags
 ticktick tag list
 
-# Create hierarchical tags
+# Create a tag
 ticktick tag add "work"
-ticktick tag add "work/urgent" --parent "work"
+
+# Create a child tag
+ticktick tag add "urgent" --parent "work"
 
 # Rename a tag
 ticktick tag rename "old-name" "new-name"
@@ -136,32 +154,37 @@ fi
 | `ticktick auth login` | Log in to TickTick |
 | `ticktick auth logout` | Log out and clear credentials |
 | `ticktick auth status` | Show authentication status |
+| `ticktick auth whoami` | Alias for status |
 | `ticktick task list` | List active tasks |
 | `ticktick task show ID` | Show task details |
 | `ticktick task add TITLE` | Create a new task |
 | `ticktick task edit ID` | Edit an existing task |
-| `ticktick task done ID...` | Mark task(s) as complete |
-| `ticktick task abandon ID...` | Mark task(s) as abandoned |
-| `ticktick task reopen ID...` | Reopen closed task(s) |
-| `ticktick task delete ID...` | Delete task(s) |
+| `ticktick task done ID` | Mark task as complete |
+| `ticktick task abandon ID` | Mark task as abandoned |
+| `ticktick task reopen ID` | Reopen closed task |
+| `ticktick task delete ID` | Delete task |
 | `ticktick task closed` | List completed/abandoned tasks |
-| `ticktick task subtask add PARENT TITLE` | Create a subtask |
+| `ticktick task subtask:add TASK PARENT` | Make task a subtask |
+| `ticktick task subtask:unset TASK` | Remove from parent |
 | `ticktick project list` | List all projects |
 | `ticktick project show ID` | Show project details |
 | `ticktick project add NAME` | Create a new project |
 | `ticktick project edit ID` | Edit a project |
-| `ticktick project delete ID...` | Delete project(s) |
+| `ticktick project delete ID` | Delete project |
 | `ticktick project inbox` | Show inbox project ID |
 | `ticktick group list` | List project groups |
 | `ticktick group add NAME` | Create a project group |
+| `ticktick group edit ID` | Edit a project group |
+| `ticktick group delete ID` | Delete project group |
 | `ticktick tag list` | List all tags |
 | `ticktick tag add NAME` | Create a tag |
 | `ticktick tag rename OLD NEW` | Rename a tag |
+| `ticktick tag edit NAME` | Edit tag color/parent |
+| `ticktick tag delete NAME` | Delete a tag |
 | `ticktick user profile` | Show user profile |
 | `ticktick user status` | Show subscription status |
 | `ticktick user stats` | Show usage statistics |
 | `ticktick sync` | Fetch full state snapshot |
-| `ticktick version` | Show version |
 
 Use `ticktick COMMAND --help` for detailed options.
 
@@ -175,7 +198,7 @@ username = "your@email.com"
 storage = "keyring"  # or "config" for plaintext
 
 [defaults]
-project = "inbox"  # Optional default project for new tasks
+project = "inbox_id"  # Optional default project for new tasks
 ```
 
 **Security Note:** By default, session tokens are stored in your system keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you use `--use-config`, the token is stored in plaintext in the config file with 600 permissions.
@@ -186,10 +209,6 @@ project = "inbox"  # Optional default project for new tasks
 
 The TickTick V2 API does not support fetching a single task by ID directly. Commands like `ticktick task show` fetch all tasks and filter client-side. This is efficient for most users but may be slow for accounts with thousands of tasks.
 
-### Rate Limiting
-
-The underlying pyticktick library includes retry logic with exponential backoff for the V1 API. The V2 API (used by this CLI) may encounter rate limits under heavy use. If you see errors, wait a moment and retry.
-
 ### API Stability
 
 This CLI uses TickTick's unofficial V2 API (reverse-engineered from the web app). While more feature-complete than the official V1 API, it may change without notice.
@@ -197,14 +216,20 @@ This CLI uses TickTick's unofficial V2 API (reverse-engineered from the web app)
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+# Install dependencies
+bun install
 
-# Run linting
-ruff check .
+# Run in development mode
+bun run dev [command]
+
+# Type check
+bun run typecheck
 
 # Run tests
-pytest
+bun test
+
+# Build binary
+bun run build
 ```
 
 ## License

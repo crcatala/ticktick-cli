@@ -1,0 +1,259 @@
+/**
+ * Authentication commands.
+ */
+import { Command } from "commander";
+import { createInterface } from "readline";
+import { login, getClient } from "../api/client.js";
+import {
+  getAuth,
+  setAuth,
+  clearAuth,
+  getStorageType,
+} from "../config/config.js";
+import {
+  printError,
+  printSuccess,
+  printWarning,
+  printInfo,
+  printJson,
+  printKeyValue,
+} from "../output/index.js";
+import { AuthError, ApiError } from "../utils/errors.js";
+
+/**
+ * Prompt for input (with optional hidden input for passwords).
+ */
+async function prompt(message: string, hidden = false): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    if (hidden) {
+      // For passwords, we need to handle it differently
+      process.stdout.write(message);
+      let input = "";
+
+      process.stdin.setRawMode?.(true);
+      process.stdin.resume();
+      process.stdin.setEncoding("utf8");
+
+      const onData = (char: string) => {
+        if (char === "\n" || char === "\r") {
+          process.stdin.setRawMode?.(false);
+          process.stdin.removeListener("data", onData);
+          console.log();
+          rl.close();
+          resolve(input);
+        } else if (char === "\u0003") {
+          // Ctrl+C
+          process.exit(1);
+        } else if (char === "\u007F") {
+          // Backspace
+          if (input.length > 0) {
+            input = input.slice(0, -1);
+          }
+        } else {
+          input += char;
+        }
+      };
+
+      process.stdin.on("data", onData);
+    } else {
+      rl.question(message, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    }
+  });
+}
+
+/**
+ * Generate TOTP code from secret.
+ * Simple TOTP implementation for 2FA support.
+ */
+function generateTOTP(secret: string): string {
+  // This is a simplified TOTP - in production use a library
+  // For now, we'll accept manual TOTP input instead
+  throw new Error(
+    "Auto TOTP not implemented. Please provide the code manually via --totp-code."
+  );
+}
+
+export function createAuthCommand(): Command {
+  const auth = new Command("auth").description("Manage authentication");
+
+  // login command
+  auth
+    .command("login")
+    .description("Log in to TickTick")
+    .option("-u, --username <email>", "TickTick username/email")
+    .option("--totp-secret <secret>", "TOTP secret for 2FA (base32 encoded)")
+    .option("--totp-code <code>", "TOTP code for 2FA")
+    .option(
+      "--use-config",
+      "Store token in plaintext config instead of keyring (insecure)"
+    )
+    .action(async (options) => {
+      try {
+        let username = options.username;
+        if (!username) {
+          username = await prompt("Username/Email: ");
+        }
+
+        const password = await prompt("Password: ", true);
+
+        if (options.useConfig) {
+          printWarning(
+            "Using plaintext config storage. Token will be stored unencrypted."
+          );
+        }
+
+        printInfo("Logging in to TickTick...");
+
+        // Determine TOTP code if needed
+        let totpCode = options.totpCode;
+        if (options.totpSecret && !totpCode) {
+          // Try to generate from secret
+          try {
+            totpCode = generateTOTP(options.totpSecret);
+          } catch {
+            printError("Could not generate TOTP. Please provide --totp-code.");
+            process.exit(1);
+          }
+        }
+
+        // Attempt login
+        const result = await login(username, password, totpCode);
+
+        if (result.need2FA && !totpCode) {
+          printError(
+            "2FA is enabled. Provide --totp-code or --totp-secret."
+          );
+          process.exit(1);
+        }
+
+        if (!result.token) {
+          printError("Login failed: No token received");
+          process.exit(1);
+        }
+
+        // Save credentials
+        await setAuth(username, result.token, options.useConfig ?? false);
+
+        // Try to get display name
+        let displayName = username;
+        try {
+          const client = await getClient();
+          const profile = await client.getProfile();
+          displayName = profile.name || profile.username || username;
+        } catch {
+          // Profile fetch failed but login succeeded
+        }
+
+        printSuccess(`Logged in as ${displayName}`);
+        const storageType = options.useConfig ? "config file" : "system keyring";
+        printInfo(`Token stored in: ${storageType}`);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          if (error.status === 401) {
+            printError("Invalid username or password");
+          } else if (error.body.includes("2fa") || error.body.includes("totp")) {
+            printError("2FA verification failed");
+          } else {
+            printError(`HTTP ${error.status}: ${error.body}`);
+          }
+        } else if (error instanceof Error) {
+          printError(error.message);
+        }
+        process.exit(1);
+      }
+    });
+
+  // logout command
+  auth
+    .command("logout")
+    .description("Log out from TickTick")
+    .action(async () => {
+      const authData = await getAuth();
+      if (!authData) {
+        printInfo("Not logged in");
+        return;
+      }
+
+      await clearAuth();
+      printSuccess("Logged out successfully");
+    });
+
+  // status command
+  auth
+    .command("status")
+    .description("Show authentication status and user info")
+    .option("--json", "Output as JSON")
+    .action(async (options) => {
+      const authData = await getAuth();
+      const storageType = getStorageType();
+
+      if (!authData) {
+        if (options.json) {
+          printJson({ authenticated: false });
+        } else {
+          printInfo("Not logged in. Run 'ticktick auth login' to log in.");
+        }
+        return;
+      }
+
+      try {
+        const client = await getClient();
+        const profile = await client.getProfile();
+
+        if (options.json) {
+          printJson({
+            authenticated: true,
+            username: authData.username,
+            storage: storageType,
+            profile,
+          });
+        } else {
+          printSuccess(`Logged in as ${authData.username}`);
+          printKeyValue(
+            {
+              Name: profile.name ?? "-",
+              Email: profile.username ?? "-",
+              "User ID": profile.id ?? "-",
+              "Token Storage": storageType ?? "unknown",
+            },
+            ["Name", "Email", "User ID", "Token Storage"]
+          );
+        }
+      } catch (error) {
+        if (options.json) {
+          printJson({
+            authenticated: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        } else {
+          printWarning("Token may be expired");
+          printInfo("Run 'ticktick auth login' to re-authenticate.");
+        }
+      }
+    });
+
+  // whoami command (alias for status)
+  auth
+    .command("whoami")
+    .description("Show current user (alias for status)")
+    .option("--json", "Output as JSON")
+    .action(async (options) => {
+      // Delegate to status command
+      const statusCmd = auth.commands.find((c) => c.name() === "status");
+      if (statusCmd) {
+        await statusCmd.parseAsync(["status", ...(options.json ? ["--json"] : [])], {
+          from: "user",
+        });
+      }
+    });
+
+  return auth;
+}
