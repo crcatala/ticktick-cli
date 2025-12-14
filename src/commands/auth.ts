@@ -121,6 +121,10 @@ export function createAuthCommand(): Command {
           process.exit(1);
         }
 
+        if (verbose) {
+          printInfo(`[debug] Using token length: ${result.token.length}`);
+        }
+
         // Save credentials
         await setAuth(username, result.token, options.useConfig ?? false);
 

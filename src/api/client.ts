@@ -62,10 +62,16 @@ function generateDeviceId(): string {
 export class TickTickClient {
   private username: string;
   private token: string;
+  private deviceId: string;
 
   constructor(username: string, token: string) {
     this.username = username;
     this.token = token;
+    // Use a stable device ID for the lifetime of the client/session.
+    // TickTick associates the session cookie with the X-Device payload;
+    // regenerating this per-request causes the server to invalidate the session
+    // and return 401 "Session expired".
+    this.deviceId = generateDeviceId();
   }
 
   /**
@@ -80,7 +86,7 @@ export class TickTickClient {
       "X-Device": JSON.stringify({
         platform: "web",
         version: 6430,
-        id: generateDeviceId(),
+        id: this.deviceId,
       }),
     };
   }
@@ -553,13 +559,14 @@ export async function login(
   const url = `${BASE_URL}${ENDPOINTS.LOGIN}`;
   // TickTick's undocumented V2 API requires browser-like headers.
   // X-Device identifies the client; version 6430 is the current web app version.
+  const deviceId = generateDeviceId();
   const headers: Record<string, string> = {
     "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
     "Content-Type": "application/json",
     "X-Device": JSON.stringify({
       platform: "web",
       version: 6430,
-      id: generateDeviceId(),
+      id: deviceId,
     }),
   };
 
@@ -574,6 +581,10 @@ export async function login(
     headers,
     body: JSON.stringify(body),
   });
+
+  if (verbose) {
+    console.log(`[debug] X-Device id: ${deviceId}`);
+  }
 
   if (verbose) {
     console.log(`[debug] Response status: ${response.status}`);
@@ -616,13 +627,21 @@ export async function login(
     throw new ApiError(response.status, text);
   }
 
-  // Token can be in response body or Set-Cookie header
+  // Token can be in response body or Set-Cookie header. Prefer body.token, then sid, then cookie.
+  if (!result.token && result.sid) {
+    result.token = result.sid;
+  }
+
   const setCookie = response.headers.get("set-cookie");
-  if (setCookie) {
+  if (!result.token && setCookie) {
     const tokenMatch = setCookie.match(/t=([^;]+)/);
     if (tokenMatch) {
       result.token = tokenMatch[1];
     }
+  }
+
+  if (!result.token) {
+    throw new AuthError("Login succeeded but no session token was returned");
   }
 
   if (verbose) {

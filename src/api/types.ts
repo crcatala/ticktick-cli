@@ -138,6 +138,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token?: string;
+  sid?: string; // seen in some TickTick responses as alternate session token
   userId?: string;
   username?: string;
   inboxId?: string;
