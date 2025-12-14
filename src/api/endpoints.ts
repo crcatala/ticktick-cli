@@ -6,7 +6,7 @@ export const BASE_URL = "https://api.ticktick.com/api/v2";
 
 export const ENDPOINTS = {
   // Auth
-  LOGIN: "/user/signon",
+  LOGIN: "/user/signon?wc=true&remember=true",
 
   // User
   PROFILE: "/user/profile",
