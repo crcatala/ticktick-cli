@@ -2,6 +2,7 @@
  * Configuration management for TickTick CLI.
  *
  * Handles reading and writing configuration to ~/.config/ticktick-cli/config.json.
+ * Also supports reading legacy TOML config from Python version for migration.
  * Supports both secure keyring storage (default) and plaintext config storage.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "fs";
@@ -12,6 +13,7 @@ import { ConfigError } from "../utils/errors.js";
 
 const CONFIG_DIR = join(homedir(), ".config", "ticktick-cli");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+const LEGACY_CONFIG_FILE = join(CONFIG_DIR, "config.toml");
 
 export interface AuthConfig {
   username: string;
@@ -38,19 +40,71 @@ function ensureConfigDir(): void {
 }
 
 /**
- * Load configuration from file.
+ * Parse simple TOML config (legacy Python format).
+ * Only handles the basic structure we need for migration.
  */
-export function loadConfig(): Config {
-  if (!existsSync(CONFIG_FILE)) {
-    return {};
+function parseLegacyToml(content: string): Config {
+  const config: Config = {};
+  let currentSection = "";
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    // Section header
+    const sectionMatch = trimmed.match(/^\[(\w+)\]$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1];
+      continue;
+    }
+
+    // Key-value pair
+    const kvMatch = trimmed.match(/^(\w+)\s*=\s*"?([^"]*)"?$/);
+    if (kvMatch && currentSection) {
+      const [, key, value] = kvMatch;
+      if (currentSection === "auth") {
+        config.auth = config.auth ?? { username: "", storage: "config" };
+        if (key === "username") config.auth.username = value;
+        if (key === "token") config.auth.token = value;
+        if (key === "storage") config.auth.storage = value as "keyring" | "config";
+      } else if (currentSection === "defaults") {
+        config.defaults = config.defaults ?? {};
+        if (key === "project") config.defaults.project = value;
+      }
+    }
   }
 
-  try {
-    const content = readFileSync(CONFIG_FILE, "utf-8");
-    return JSON.parse(content) as Config;
-  } catch (error) {
-    throw new ConfigError(`Failed to parse config file: ${error}`);
+  return config;
+}
+
+/**
+ * Load configuration from file.
+ * Tries JSON first, then falls back to legacy TOML for migration.
+ */
+export function loadConfig(): Config {
+  // Try JSON config first
+  if (existsSync(CONFIG_FILE)) {
+    try {
+      const content = readFileSync(CONFIG_FILE, "utf-8");
+      return JSON.parse(content) as Config;
+    } catch (error) {
+      throw new ConfigError(`Failed to parse config file: ${error}`);
+    }
   }
+
+  // Fall back to legacy TOML config (from Python version)
+  if (existsSync(LEGACY_CONFIG_FILE)) {
+    try {
+      const content = readFileSync(LEGACY_CONFIG_FILE, "utf-8");
+      return parseLegacyToml(content);
+    } catch (error) {
+      throw new ConfigError(`Failed to parse legacy config file: ${error}`);
+    }
+  }
+
+  return {};
 }
 
 /**

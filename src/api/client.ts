@@ -34,6 +34,15 @@ interface RequestOptions {
 }
 
 /**
+ * Generate a random device ID (24-char hex string like BSON ObjectId).
+ */
+function generateDeviceId(): string {
+  return Array.from({ length: 24 }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join("");
+}
+
+/**
  * TickTick API client class.
  */
 export class TickTickClient {
@@ -51,13 +60,12 @@ export class TickTickClient {
   private get headers(): Record<string, string> {
     return {
       "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
       Cookie: `t=${this.token}`,
       "x-device": JSON.stringify({
         platform: "web",
-        os: "Linux",
-        device: "Chrome",
-        name: "ticktick-cli",
-        version: 5070,
+        version: 6430,
+        id: generateDeviceId(),
       }),
     };
   }
@@ -528,14 +536,16 @@ export async function login(
   }
 
   const url = `${BASE_URL}${ENDPOINTS.LOGIN}`;
-  const headers = {
+  const headers: Record<string, string> = {
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
     "Content-Type": "application/json",
     "x-device": JSON.stringify({
       platform: "web",
-      os: "Linux",
-      device: "Chrome",
-      name: "ticktick-cli",
-      version: 5070,
+      version: 6430,
+      id: generateDeviceId(),
     }),
   };
 
