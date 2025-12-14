@@ -5,27 +5,10 @@ from typing import Annotated
 import typer
 
 from ticktick_cli import output
-from ticktick_cli.client import AuthenticationError, ClientError, get_client
+from ticktick_cli.cli.errors import handle_client_error
+from ticktick_cli.client import get_client
 
 app = typer.Typer(help="Sync operations")
-
-
-def handle_client_error(func):
-    """Decorator to handle client errors."""
-    from functools import wraps
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except AuthenticationError as e:
-            output.print_error(str(e))
-            raise typer.Exit(1)
-        except ClientError as e:
-            output.print_error(str(e))
-            raise typer.Exit(1)
-
-    return wrapper
 
 
 @app.callback(invoke_without_command=True)
