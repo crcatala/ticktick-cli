@@ -11,8 +11,7 @@
     "rootDir": "./src",
     "types": ["bun-types"],
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
     "sourceMap": true
   },
   "include": ["src/**/*"],

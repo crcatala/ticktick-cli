@@ -22,7 +22,6 @@ import { AuthError, ApiError } from "../utils/errors.js";
 
 /**
  * Prompt for input.
- * Note: Password hiding is not reliably supported in all terminals with Bun.
  */
 async function prompt(message: string): Promise<string> {
   const rl = createInterface({
@@ -35,6 +34,60 @@ async function prompt(message: string): Promise<string> {
       rl.close();
       resolve(answer);
     });
+  });
+}
+
+/**
+ * Prompt for password with hidden input.
+ * Uses raw mode to hide characters as they're typed.
+ */
+async function promptPassword(message: string): Promise<string> {
+  return new Promise((resolve) => {
+    process.stdout.write(message);
+
+    const stdin = process.stdin;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+
+    let password = '';
+
+    const onData = (char: string) => {
+      const code = char.charCodeAt(0);
+
+      // Handle Ctrl+C
+      if (code === 3) {
+        stdin.setRawMode(false);
+        stdin.pause();
+        stdin.removeListener('data', onData);
+        process.exit(0);
+      }
+
+      // Handle Enter/Return
+      if (code === 13 || code === 10) {
+        stdin.setRawMode(false);
+        stdin.pause();
+        stdin.removeListener('data', onData);
+        process.stdout.write('\n');
+        resolve(password);
+        return;
+      }
+
+      // Handle Backspace/Delete
+      if (code === 127 || code === 8) {
+        if (password.length > 0) {
+          password = password.slice(0, -1);
+        }
+        return;
+      }
+
+      // Add character to password (ignore control characters)
+      if (code >= 32) {
+        password += char;
+      }
+    };
+
+    stdin.on('data', onData);
   });
 }
 
@@ -74,7 +127,7 @@ export function createAuthCommand(): Command {
           username = await prompt("Username/Email: ");
         }
 
-        const password = await prompt("Password (visible): ");
+        const password = await promptPassword("Password: ");
 
         if (verbose) {
           printInfo(`[debug] Username: ${username}`);
