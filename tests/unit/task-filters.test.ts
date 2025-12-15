@@ -172,6 +172,60 @@ describe("filterBySearch", () => {
     // Should match in items
     expect(filterBySearch(tasks, "roadmap")).toHaveLength(1);
   });
+
+  it("handles empty search query", () => {
+    const tasks = [
+      createTask({ id: "1", title: "Task one" }),
+      createTask({ id: "2", title: "Task two" }),
+    ];
+
+    // Empty string matches nothing (substring match of empty string)
+    const results = filterBySearch(tasks, "");
+
+    // Note: "".includes("") returns true, so all tasks match
+    expect(results).toHaveLength(2);
+  });
+
+  it("handles special regex characters in search", () => {
+    const tasks = [
+      createTask({ id: "1", title: "Task (important)" }),
+      createTask({ id: "2", title: "Task [urgent]" }),
+      createTask({ id: "3", title: "Price: $100" }),
+    ];
+
+    // These characters could break if we used regex
+    expect(filterBySearch(tasks, "(important)")).toHaveLength(1);
+    expect(filterBySearch(tasks, "[urgent]")).toHaveLength(1);
+    expect(filterBySearch(tasks, "$100")).toHaveLength(1);
+  });
+
+  it("matches partial words", () => {
+    const tasks = [
+      createTask({ id: "1", title: "Development meeting" }),
+      createTask({ id: "2", title: "Developer resources" }),
+    ];
+
+    const results = filterBySearch(tasks, "develop");
+
+    expect(results).toHaveLength(2);
+  });
+
+  it("handles checklist items with null titles", () => {
+    const tasks = [
+      createTask({
+        id: "1",
+        title: "Task",
+        items: [
+          { id: "item1", title: null, status: 0 },
+          { id: "item2", title: "Valid item", status: 0 },
+        ],
+      }),
+    ];
+
+    const results = filterBySearch(tasks, "Valid");
+
+    expect(results).toHaveLength(1);
+  });
 });
 
 describe("resolveProjectId", () => {
@@ -225,6 +279,29 @@ describe("resolveProjectId", () => {
     const result = resolveProjectId(projectsWithMatchingName, "work123");
 
     expect(result).toBe("work123"); // Returns the one with matching ID
+  });
+
+  it("handles empty projects array", () => {
+    const result = resolveProjectId([], "anything");
+
+    expect(result).toBeUndefined();
+  });
+
+  it("handles projects with null names", () => {
+    const projectsWithNullName: Project[] = [
+      createProject({ id: "proj1", name: null }),
+      createProject({ id: "proj2", name: "Valid" }),
+    ];
+
+    expect(resolveProjectId(projectsWithNullName, "Valid")).toBe("proj2");
+    expect(resolveProjectId(projectsWithNullName, "proj1")).toBe("proj1");
+  });
+
+  it("does not match partial project names", () => {
+    // Name matching should be exact (case-insensitive), not substring
+    const result = resolveProjectId(projects, "Work Projects");
+
+    expect(result).toBeUndefined();
   });
 });
 
