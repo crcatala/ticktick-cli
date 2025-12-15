@@ -101,6 +101,29 @@ async function saveSnapshot(
 }
 
 /**
+ * Format error message, truncating HTML responses.
+ */
+function formatErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const message = error.message;
+
+  // Detect HTML responses (common for 404s) and truncate
+  if (message.includes("<!DOCTYPE html>") || message.includes("<html")) {
+    // Extract just the HTTP status part
+    const statusMatch = message.match(/^HTTP \d+/);
+    if (statusMatch) {
+      return `${statusMatch[0]} (HTML response)`;
+    }
+    return "HTTP error (HTML response)";
+  }
+
+  return message;
+}
+
+/**
  * Capture a single endpoint with error handling.
  * Returns true if successful, false if failed.
  */
@@ -118,7 +141,8 @@ async function captureEndpoint(
     await apiDelay();
     return true;
   } catch (error) {
-    console.log(`✗ Failed to capture ${name}: ${error instanceof Error ? error.message : String(error)}`);
+    const errorMsg = formatErrorMessage(error);
+    console.log(`✗ Failed to capture ${name}: ${errorMsg}`);
     failedEndpoints.push(`${method} ${endpoint} (${name})`);
     await apiDelay(); // Still delay to avoid rate limiting on subsequent calls
     return false;
@@ -173,15 +197,6 @@ async function captureSchemas(): Promise<void> {
       "GET",
       () => client.getUserStatus(),
       "user-status.schema.json"
-    );
-
-    // GET /user/statistics
-    await captureEndpoint(
-      "user stats",
-      "/api/v2/user/statistics",
-      "GET",
-      () => client.getUserStats(),
-      "user-stats.schema.json"
     );
 
     // GET /project/all/closed (completed tasks)
