@@ -33,7 +33,8 @@ describe("TickTickClient", () => {
 
     expect(profile.username).toBe("user");
     expect(callCount).toBe(2);
-    expect(elapsed).toBeGreaterThanOrEqual(1000);
+    // Backoff uses 1000ms base delay with 10% jitter, so minimum is ~900ms
+    expect(elapsed).toBeGreaterThanOrEqual(850);
   }, 8000);
 
   test("createTask attaches generated id and etag", async () => {

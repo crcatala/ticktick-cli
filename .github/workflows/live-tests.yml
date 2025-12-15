@@ -1,0 +1,47 @@
+name: Live Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  live-tests:
+    runs-on: ubuntu-latest
+    # Only run if the token secret is available
+    if: ${{ secrets.TICKTICK_TOKEN != '' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run live integration tests
+        env:
+          RUN_LIVE_TESTS: "1"
+          TICKTICK_TOKEN: ${{ secrets.TICKTICK_TOKEN }}
+          TICKTICK_DEBUG: ${{ inputs.debug == 'true' && '1' || '0' }}
+        run: bun test tests/integration/live-api.test.ts --timeout 60000
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Live Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ All live tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some live tests failed" >> $GITHUB_STEP_SUMMARY
+          fi

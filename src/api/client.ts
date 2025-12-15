@@ -5,6 +5,7 @@
  */
 import { getAuth } from "../config/config.js";
 import { AuthError, ApiError, ClientError } from "../utils/errors.js";
+import { calculateBackoffDelay, sleep } from "../utils/backoff.js";
 import { BASE_URL, ENDPOINTS } from "./endpoints.js";
 import {
   validateOne,
@@ -139,7 +140,6 @@ export class TickTickClient {
     const { method = "GET", body } = options;
     const url = `${BASE_URL}${endpoint}`;
     const maxRetries = 3;
-    const baseDelay = 1000; // 1 second
 
     if (this.debug) {
       console.log(`[debug] ${method} ${url}${retryCount > 0 ? ` (retry ${retryCount})` : ""}`);
@@ -160,11 +160,11 @@ export class TickTickClient {
 
     // Handle rate limiting with exponential backoff
     if (response.status === 429 && retryCount < maxRetries) {
-      const delay = baseDelay * Math.pow(2, retryCount);
+      const delay = calculateBackoffDelay(retryCount);
       if (this.debug) {
         console.log(`[debug] Rate limited. Retrying in ${delay}ms...`);
       }
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await sleep(delay);
       return this.request<T>(endpoint, options, retryCount + 1);
     }
 
