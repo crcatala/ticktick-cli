@@ -9,8 +9,7 @@ import {
   printJson,
   printKeyValue,
 } from "../../src/output/format.js";
-
-const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
+import { stripAnsi } from "../utils/test-helpers.js";
 
 describe("format helpers", () => {
   test("formatPriority maps values to labels", () => {
