@@ -277,9 +277,11 @@ export class TickTickClient {
    * Note: API doesn't return full task object; some fields may only be populated after refetching.
    */
   async createTask(task: TaskCreate): Promise<Task> {
+    // Generate a temporary ID for the request
+    const tempId = crypto.randomUUID();
     const taskWithId: Task = {
       ...task,
-      id: crypto.randomUUID(),
+      id: tempId,
     };
 
     const data = await this.request<unknown>(
@@ -303,11 +305,36 @@ export class TickTickClient {
       throw new ClientError(`Failed to create task: ${errorMessages.join("; ")}`);
     }
 
-    // Add etag if returned by API
-    if (response.id2etag && taskWithId.id) {
-      taskWithId.etag = response.id2etag[taskWithId.id];
+    // The API may return a different ID than what we sent.
+    // Check id2etag for the real ID mapping, or fetch to find the created task.
+    if (response.id2etag) {
+      const ids = Object.keys(response.id2etag);
+      // If we get back an ID different from what we sent, use that
+      const realId = ids.find(id => id !== tempId) || ids[0];
+      if (realId) {
+        taskWithId.id = realId;
+        taskWithId.etag = response.id2etag[realId];
+        return taskWithId;
+      }
+      // If the temp ID is in the response, the API accepted our ID
+      if (response.id2etag[tempId]) {
+        taskWithId.etag = response.id2etag[tempId];
+        return taskWithId;
+      }
     }
 
+    // Fallback: fetch tasks to find the one we just created by title
+    // This handles the case where the API assigns a completely different ID
+    const allTasks = await this.getTasks();
+    const createdTask = allTasks.find(t => 
+      t.title === task.title && 
+      t.projectId === task.projectId
+    );
+    if (createdTask) {
+      return createdTask;
+    }
+
+    // If we still can't find it, return what we have
     return taskWithId;
   }
 
