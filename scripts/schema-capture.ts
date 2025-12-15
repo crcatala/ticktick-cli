@@ -21,11 +21,14 @@ import { join } from "path";
 const SNAPSHOTS_DIR = "schemas/snapshots";
 const SCHEMA_VERSION = "1.0.0";
 
+// Track number of snapshots saved
+let snapshotCount = 0;
+
 /**
  * Infer JSON Schema from a value.
  * Tracks type information and nullability.
  */
-function inferSchema(value: unknown, fieldName?: string): unknown {
+function inferSchema(value: unknown): unknown {
   if (value === null) {
     return { type: ["null"] };
   }
@@ -54,7 +57,7 @@ function inferSchema(value: unknown, fieldName?: string): unknown {
     const properties: Record<string, unknown> = {};
 
     for (const [key, val] of Object.entries(value)) {
-      properties[key] = inferSchema(val, key);
+      properties[key] = inferSchema(val);
     }
 
     return {
@@ -92,6 +95,7 @@ async function saveSnapshot(
 ): Promise<void> {
   const filepath = join(SNAPSHOTS_DIR, filename);
   await writeFile(filepath, JSON.stringify(schema, null, 2));
+  snapshotCount++;
   console.log(`✓ Saved ${filename}`);
 }
 
@@ -257,7 +261,7 @@ async function captureSchemas(): Promise<void> {
     await apiDelay();
 
     console.log("\n✓ Schema capture complete!");
-    console.log(`  Saved ${9} schema snapshots to ${SNAPSHOTS_DIR}/`);
+    console.log(`  Saved ${snapshotCount} schema snapshots to ${SNAPSHOTS_DIR}/`);
 
   } catch (error) {
     console.error("\n✗ Error during schema capture:", error);
@@ -273,6 +277,13 @@ async function captureSchemas(): Promise<void> {
 
 // Run if executed directly
 if (import.meta.main) {
+  // Validate required environment variables
+  if (!process.env.TICKTICK_TOKEN) {
+    console.error("Error: TICKTICK_TOKEN environment variable is required");
+    console.error("Usage: TICKTICK_TOKEN=xxx bun run schema:capture");
+    process.exit(1);
+  }
+
   try {
     await captureSchemas();
   } catch (error) {
