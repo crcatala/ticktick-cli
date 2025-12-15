@@ -325,6 +325,124 @@ describe("TickTickClient", () => {
     expect(body.update[0].reminders).toHaveLength(0);
   });
 
+  test("createTask sends repeat fields in request body", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "fakeid": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.createTask({
+      title: "Daily standup",
+      repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
+      repeatFrom: "2",
+      repeatFirstDate: "2025-12-20T09:00:00.000+0000",
+    });
+
+    const body = capturedBody as { add: Array<{ title: string; repeatFlag: string; repeatFrom: string; repeatFirstDate: string }> };
+    expect(body.add).toHaveLength(1);
+    expect(body.add[0].title).toBe("Daily standup");
+    expect(body.add[0].repeatFlag).toBe("RRULE:FREQ=DAILY;INTERVAL=1");
+    expect(body.add[0].repeatFrom).toBe("2");
+    expect(body.add[0].repeatFirstDate).toBe("2025-12-20T09:00:00.000+0000");
+  });
+
+  test("createTask sends weekly repeat with specific days", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "fakeid": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.createTask({
+      title: "Team sync",
+      repeatFlag: "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR",
+      repeatFrom: "2",
+      repeatFirstDate: "2025-12-16T10:00:00.000+0000",
+    });
+
+    const body = capturedBody as { add: Array<{ repeatFlag: string }> };
+    expect(body.add[0].repeatFlag).toBe("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR");
+  });
+
+  test("createTask sends repeat with count limit", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "fakeid": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.createTask({
+      title: "Sprint retro",
+      repeatFlag: "RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=10",
+      repeatFrom: "2",
+      repeatFirstDate: "2025-12-20T14:00:00.000+0000",
+    });
+
+    const body = capturedBody as { add: Array<{ repeatFlag: string }> };
+    expect(body.add[0].repeatFlag).toContain("COUNT=10");
+  });
+
+  test("updateTask sends repeat fields to add recurrence", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      repeatFlag: "RRULE:FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15",
+      repeatFrom: "2",
+      repeatFirstDate: "2025-12-15T00:00:00.000+0000",
+    });
+
+    const body = capturedBody as { update: Array<{ id: string; repeatFlag: string; repeatFrom: string; repeatFirstDate: string }> };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].repeatFlag).toBe("RRULE:FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15");
+    expect(body.update[0].repeatFrom).toBe("2");
+    expect(body.update[0].repeatFirstDate).toBe("2025-12-15T00:00:00.000+0000");
+  });
+
+  test("updateTask clears repeat with empty repeatFlag", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      repeatFlag: "",
+    });
+
+    const body = capturedBody as { update: Array<{ id: string; repeatFlag: string }> };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].repeatFlag).toBe("");
+  });
+
   test("getTask fetches single task with projectId query param", async () => {
     let capturedUrl: string | undefined;
 
