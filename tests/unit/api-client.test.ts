@@ -1,7 +1,8 @@
 import { describe, expect, mock, test, beforeEach } from "bun:test";
 import { server, http, HttpResponse } from "../setup/msw.js";
+import { BASE_URL } from "../../src/api/endpoints.js";
 
-const API_BASE = "https://api.ticktick.com/api/v2";
+const API_BASE = BASE_URL;
 
 const createClient = async () => {
   const { TickTickClient } = await import("../../src/api/client.js");
