@@ -18,6 +18,10 @@ import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
 import { createReminder, formatReminderTrigger } from "../utils/reminder.js";
 import { handleError } from "./errors.js";
+
+// Maximum reminders per task based on TickTick API observation
+// (confirmed from API payload examples showing up to 5 reminders)
+const MAX_REMINDERS_PER_TASK = 5;
 import {
   filterByProject,
   filterByTag,
@@ -205,13 +209,19 @@ export function createTaskCommand(): Command {
             const reminder = createReminder(timeStr);
             if (!reminder) {
               printError(`Invalid reminder format: ${timeStr}`);
-              printInfo("Supported formats: on-time, 15m, 1h, 2h30m, 1d");
+              printInfo("Supported formats:");
+              printInfo("  on-time    - Remind at task time");
+              printInfo("  15m        - 15 minutes before");
+              printInfo("  1h         - 1 hour before");
+              printInfo("  2h30m      - 2 hours 30 minutes before");
+              printInfo("  1d         - 1 day before");
+              printInfo("Can combine: 1d2h30m for 1 day, 2 hours, 30 minutes");
               process.exit(1);
             }
             reminders.push(reminder);
           }
-          if (reminders.length > 5) {
-            printError("Maximum 5 reminders allowed per task");
+          if (reminders.length > MAX_REMINDERS_PER_TASK) {
+            printError(`Maximum ${MAX_REMINDERS_PER_TASK} reminders allowed per task`);
             process.exit(1);
           }
           taskData.reminders = reminders;
@@ -291,13 +301,19 @@ export function createTaskCommand(): Command {
             const reminder = createReminder(timeStr);
             if (!reminder) {
               printError(`Invalid reminder format: ${timeStr}`);
-              printInfo("Supported formats: on-time, 15m, 1h, 2h30m, 1d");
+              printInfo("Supported formats:");
+              printInfo("  on-time    - Remind at task time");
+              printInfo("  15m        - 15 minutes before");
+              printInfo("  1h         - 1 hour before");
+              printInfo("  2h30m      - 2 hours 30 minutes before");
+              printInfo("  1d         - 1 day before");
+              printInfo("Can combine: 1d2h30m for 1 day, 2 hours, 30 minutes");
               process.exit(1);
             }
             reminders.push(reminder);
           }
-          if (reminders.length > 5) {
-            printError("Maximum 5 reminders allowed per task");
+          if (reminders.length > MAX_REMINDERS_PER_TASK) {
+            printError(`Maximum ${MAX_REMINDERS_PER_TASK} reminders allowed per task`);
             process.exit(1);
           }
           updateData.reminders = reminders;

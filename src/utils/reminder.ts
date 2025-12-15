@@ -16,6 +16,10 @@ import type { Reminder } from "../api/types.js";
 /**
  * Generate a MongoDB ObjectId-style ID for a reminder.
  * Same format used by TickTick API (24-char hex string).
+ *
+ * Note: This is a best-effort client-side implementation using cryptographically
+ * secure random values. The TickTick API may replace these IDs with server-generated
+ * ones, but this format matches the expected 24-character hex structure.
  */
 function generateReminderId(): string {
   const timestamp = Math.floor(Date.now() / 1000)
