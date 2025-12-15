@@ -30,4 +30,7 @@ export const ENDPOINTS = {
   BATCH_TAG: "/batch/tag",
   TAG_RENAME: "/tag/rename",
   TAG_DELETE: "/tag", // DELETE /tag/{name}
+
+  // Trash
+  TRASH_CLEANUP: "/trash/cleanUp",
 } as const;

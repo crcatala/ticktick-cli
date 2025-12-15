@@ -327,6 +327,14 @@ export class TestProject {
         }
       }
 
+      // Empty trash to permanently delete all trashed items
+      try {
+        await this.client.emptyTrash();
+        await apiDelay();
+      } catch (error) {
+        console.warn("[live-test] Failed to empty trash:", error);
+      }
+
       // Log summary
       const total = cleanedTasks + cleanedProjects + cleanedTags + cleanedGroups;
       if (total > 0) {
@@ -474,6 +482,15 @@ export async function cleanupAllTestResources(): Promise<void> {
     }
   } catch (error) {
     console.warn("[cleanup] Error fetching groups:", error);
+  }
+
+  // Empty trash to permanently delete all trashed items
+  try {
+    console.log("[cleanup] Emptying trash...");
+    await client.emptyTrash();
+    await apiDelay();
+  } catch (error) {
+    console.warn("[cleanup] Failed to empty trash:", error);
   }
 
   console.log(`[cleanup] Done! Cleaned up: ${cleanedTasks} tasks, ${cleanedProjects} projects, ${cleanedTags} tags, ${cleanedGroups} groups`);

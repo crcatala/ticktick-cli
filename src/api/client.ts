@@ -818,6 +818,15 @@ export class TickTickClient {
       method: "DELETE",
     });
   }
+
+  /**
+   * Empty the trash (permanently delete all trashed items).
+   */
+  async emptyTrash(): Promise<void> {
+    await this.request(ENDPOINTS.TRASH_CLEANUP, {
+      method: "DELETE",
+    });
+  }
 }
 
 /**
