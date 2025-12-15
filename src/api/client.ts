@@ -369,14 +369,35 @@ export class TickTickClient {
   /**
    * Update an existing task.
    * Returns the updated task data with etag if available.
+   * 
+   * IMPORTANT: To update reminders, projectId must be provided in the task parameter.
+   * The TickTick API requires the full task object (not partial updates) to modify reminders.
+   * If projectId is provided, this method fetches the current task and merges changes.
+   * 
    * Note: API doesn't return full task object; refetch if you need all current fields.
    */
   async updateTask(task: TaskUpdate): Promise<Task> {
+    let fullTask = task;
+
+    // Fetch current task if we have both id and projectId
+    // This is required for reminder updates to work properly
+    if (task.id && task.projectId) {
+      try {
+        const currentTask = await this.getTask(task.id, task.projectId);
+        // Merge updates into current task to create complete task object
+        fullTask = { ...currentTask, ...task };
+      } catch (error) {
+        // If fetch fails, fall back to partial update
+        // This could happen if task doesn't exist yet
+        fullTask = task;
+      }
+    }
+
     const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,
       {
         method: "POST",
-        body: { update: [task] },
+        body: { update: [fullTask] },
       }
     );
     const response = validateOne(

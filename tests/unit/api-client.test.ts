@@ -108,6 +108,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since completeTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to complete",
+          status: 0,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -131,6 +140,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since abandonTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to abandon",
+          status: 0,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -152,6 +170,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since reopenTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to reopen",
+          status: 2,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -330,6 +357,17 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since updateTask fetches full task when projectId provided)
+      http.get(`${API_BASE}/task/:taskId`, ({ request, params }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("projectId")).toBe("project-456");
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Existing task",
+          items: [],
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: { "task-123": "new-etag" } });
