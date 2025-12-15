@@ -152,10 +152,16 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     const client = getClient();
     const testProject = getTestProject();
 
+    // Reminders require a reference time (startDate or dueDate)
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1); // Tomorrow
+    const startDate = futureDate.toISOString();
+
     const title = generateTestName("task-reminder");
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
+      startDate,
       reminders: [
         {
           id: "694044a2725bb97301a131ef", // Client-generated ID
@@ -183,10 +189,16 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     const client = getClient();
     const testProject = getTestProject();
 
+    // Reminders require a reference time
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 2); // 2 days out
+    const startDate = futureDate.toISOString();
+
     const title = generateTestName("task-multi-reminder");
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
+      startDate,
       reminders: [
         {
           id: "694044a2725bb97301a131e1",
@@ -225,11 +237,17 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     const client = getClient();
     const testProject = getTestProject();
 
-    // Create task without reminders
+    // Reminders require a reference time
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    // Create task without reminders but with startDate
     const title = generateTestName("task");
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
+      startDate,
     });
     testProject.trackTask(task.id);
 
@@ -289,10 +307,16 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     const client = getClient();
     const testProject = getTestProject();
 
+    // Reminders require a reference time
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
     const title = generateTestName("task-persist");
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
+      startDate,
       reminders: [
         {
           id: "694044a2725bb97301a131e6",
