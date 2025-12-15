@@ -5,7 +5,10 @@
  * - RUN_LIVE_TESTS=1
  * - TICKTICK_TOKEN=<valid session token>
  *
- * Run with: RUN_LIVE_TESTS=1 TICKTICK_TOKEN=xxx bun test tests/integration/live-api.test.ts
+ * Run with:
+ *   RUN_LIVE_TESTS=1 TICKTICK_TOKEN=xxx bun test tests/integration/live-api.test.ts --timeout 60000
+ *
+ * The --timeout flag is important because API calls can be slow.
  */
 import { expect, it } from "bun:test";
 import {

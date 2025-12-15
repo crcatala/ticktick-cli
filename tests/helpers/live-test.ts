@@ -495,17 +495,19 @@ export function describeLiveWithProject(
     let client: TickTickClient;
     let testProject: TestProject;
 
+    // Use longer timeouts for setup/teardown since they make API calls
+    // and may need to clean up orphaned resources
     beforeAll(async () => {
       client = getLiveClient();
       testProject = new TestProject(client);
       await testProject.setup();
-    });
+    }, 60000); // 60 second timeout for setup
 
     afterAll(async () => {
       if (testProject) {
         await testProject.teardown();
       }
-    });
+    }, 60000); // 60 second timeout for teardown
 
     fn({
       getClient: () => client,
