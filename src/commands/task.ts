@@ -13,6 +13,7 @@ import {
   printTasksTable,
   formatPriority,
   truncateId,
+  printChecklistItems,
 } from "../output/index.js";
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
@@ -134,14 +135,7 @@ export function createTaskCommand(): Command {
           // Display checklist items if present
           if (items.length > 0) {
             console.log("");
-            const sorted = [...items].sort(
-              (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-            );
-            for (const item of sorted) {
-              const checkbox = item.status === 1 ? "☑" : "☐";
-              const shortId = item.id?.slice(0, 8) ?? "?";
-              console.log(`  ${checkbox} [${shortId}] ${item.title ?? "(untitled)"}`);
-            }
+            printChecklistItems(items);
           }
         }
       })

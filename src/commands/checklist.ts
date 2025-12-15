@@ -10,6 +10,7 @@ import {
   printSuccess,
   printInfo,
   printJson,
+  printChecklistItems,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";
@@ -30,9 +31,9 @@ function findItemById(
 }
 
 /**
- * Format checklist items for display.
+ * Print checklist with header showing completion count.
  */
-function printChecklistItems(
+function printChecklistWithHeader(
   items: ChecklistItem[],
   taskTitle?: string | null
 ): void {
@@ -47,16 +48,7 @@ function printChecklistItems(
     : `Checklist (${completed}/${items.length}):`;
   printInfo(header);
 
-  // Sort by sortOrder
-  const sorted = [...items].sort(
-    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-  );
-
-  for (const item of sorted) {
-    const checkbox = item.status === 1 ? "☑" : "☐";
-    const shortId = item.id?.slice(0, 8) ?? "?";
-    console.log(`  ${checkbox} [${shortId}] ${item.title ?? "(untitled)"}`);
-  }
+  printChecklistItems(items);
 }
 
 /**
@@ -106,7 +98,7 @@ export function createChecklistCommand(): Command {
         if (options.json) {
           printJson(items);
         } else {
-          printChecklistItems(items, fullTask.title);
+          printChecklistWithHeader(items, fullTask.title);
         }
       })
     );
@@ -277,11 +269,13 @@ export function createChecklistCommand(): Command {
   checklist
     .command("delete <taskId> <itemId>")
     .description("Delete a checklist item from a task")
+    .option("--json", "Output as JSON")
     .action(
       handleError(async function (
         this: Command,
         taskId: string,
-        itemId: string
+        itemId: string,
+        options
       ) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
@@ -336,7 +330,11 @@ export function createChecklistCommand(): Command {
           items: updatedItems,
         });
 
-        printSuccess(`Deleted checklist item: ${targetItem.title}`);
+        if (options.json) {
+          printJson({ deleted: targetItem });
+        } else {
+          printSuccess(`Deleted checklist item: ${targetItem.title}`);
+        }
       })
     );
 

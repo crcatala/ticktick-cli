@@ -79,3 +79,25 @@ export function formatPriority(priority: number | null | undefined): string {
       return pc.dim("None");
   }
 }
+
+/**
+ * Print checklist items with checkboxes.
+ */
+export function printChecklistItems(
+  items: Array<{
+    id?: string | null;
+    title?: string | null;
+    status?: number | null;
+    sortOrder?: number | null;
+  }>
+): void {
+  const sorted = [...items].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+  );
+
+  for (const item of sorted) {
+    const checkbox = item.status === 1 ? "☑" : "☐";
+    const shortId = item.id?.slice(0, 8) ?? "?";
+    console.log(`  ${checkbox} [${shortId}] ${item.title ?? "(untitled)"}`);
+  }
+}
