@@ -2,7 +2,7 @@
 /**
  * TickTick CLI - Command-line interface for TickTick
  */
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import {
   createAuthCommand,
   createTaskCommand,
@@ -42,10 +42,13 @@ program
   .name("ticktick")
   .description("Command-line interface for TickTick")
   .version("1.0.0")
-  .option(
-    "--validation <strategy>",
-    "API response validation strategy: strict (fail on errors), warn (log warnings, continue), off (skip validation)",
-    "strict"
+  .addOption(
+    new Option(
+      "--validation <strategy>",
+      "API response validation strategy: strict (fail on errors), warn (log warnings, continue), off (skip validation)"
+    )
+      .choices(["strict", "warn", "off"])
+      .default("strict")
   );
 
 // Register all command groups
