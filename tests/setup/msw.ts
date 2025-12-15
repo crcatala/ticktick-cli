@@ -5,16 +5,27 @@ import { setupServer } from "msw/node";
 // Default handlers can be extended per-test via server.use(...)
 export const server = setupServer();
 
+// Check if we're running live tests - if so, don't intercept requests
+const isLiveTest = process.env.RUN_LIVE_TESTS === "1";
+
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: "error" });
+  if (!isLiveTest) {
+    // For unit tests, error on unhandled requests to catch missing mocks
+    server.listen({ onUnhandledRequest: "error" });
+  }
+  // For live tests, don't start MSW at all - let real requests through
 });
 
 afterEach(() => {
-  server.resetHandlers();
+  if (!isLiveTest) {
+    server.resetHandlers();
+  }
 });
 
 afterAll(() => {
-  server.close();
+  if (!isLiveTest) {
+    server.close();
+  }
 });
 
 export { http, HttpResponse };
