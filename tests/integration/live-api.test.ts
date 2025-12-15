@@ -251,9 +251,10 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     });
     testProject.trackTask(task.id);
 
-    // Update to add reminders
+    // Update to add reminders (include startDate to ensure it's preserved)
     await client.updateTask({
       id: task.id,
+      startDate, // Keep the startDate
       reminders: [
         {
           id: "694044a2725bb97301a131e4",
