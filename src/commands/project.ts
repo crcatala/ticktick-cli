@@ -6,6 +6,7 @@ import { getClient } from "../api/client.js";
 import {
   printError,
   printSuccess,
+  printWarning,
   printInfo,
   printJson,
   printKeyValue,
@@ -221,7 +222,10 @@ export function createProjectCommand(): Command {
           updateData.groupId = foundFolder.id;
         }
         if (clearFolder) {
-          // Set to empty string or null to clear the group
+          // NOTE: The TickTick API does not actually support removing a project
+          // from a folder. Setting groupId to "" is silently ignored by the API.
+          // We still send the request but warn the user.
+          printWarning("Note: The TickTick API may not support removing projects from folders");
           updateData.groupId = "";
         }
 
