@@ -419,7 +419,7 @@ export function createTaskCommand(): Command {
         // Build update data
         const updateData: Parameters<typeof client.updateTask>[0] = {
           id: foundTask.id,
-          projectId: foundTask.projectId, // Always include projectId for proper task updates
+          projectId: foundTask.projectId ?? undefined, // Always include projectId for proper task updates
         };
 
         if (options.title) {

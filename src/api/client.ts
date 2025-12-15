@@ -377,7 +377,8 @@ export class TickTickClient {
    * Note: API doesn't return full task object; refetch if you need all current fields.
    */
   async updateTask(task: TaskUpdate): Promise<Task> {
-    let fullTask = task;
+    // Use Task | TaskUpdate since merged result may have nullish fields from Task
+    let fullTask: Task | TaskUpdate = task;
 
     // Fetch current task if we have both id and projectId
     // This is required for reminder updates to work properly
