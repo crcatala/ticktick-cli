@@ -28,8 +28,9 @@ let failedEndpoints: string[] = [];
 /**
  * Infer JSON Schema from a value.
  * Tracks type information and nullability.
+ * @internal Exported for testing
  */
-function inferSchema(value: unknown): unknown {
+export function inferSchema(value: unknown): unknown {
   if (value === null) {
     return { type: ["null"] };
   }
@@ -73,8 +74,9 @@ function inferSchema(value: unknown): unknown {
 
 /**
  * Create a schema snapshot with metadata.
+ * @internal Exported for testing
  */
-function createSchemaSnapshot(
+export function createSchemaSnapshot(
   endpoint: string,
   method: string,
   data: unknown
@@ -102,8 +104,9 @@ async function saveSnapshot(
 
 /**
  * Format error message, truncating HTML responses.
+ * @internal Exported for testing
  */
-function formatErrorMessage(error: unknown): string {
+export function formatErrorMessage(error: unknown): string {
   if (!(error instanceof Error)) {
     return String(error);
   }
