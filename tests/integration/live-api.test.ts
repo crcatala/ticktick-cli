@@ -233,7 +233,7 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     expect(triggers).toContain("TRIGGER:-PT1440M");
   });
 
-  it("updates task to add reminders", async () => {
+  it("updates task to modify reminders", async () => {
     const client = getClient();
     const testProject = getTestProject();
 
@@ -242,29 +242,31 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     futureDate.setDate(futureDate.getDate() + 1);
     const startDate = futureDate.toISOString();
 
-    // Create task without reminders but with startDate
+    // Create task WITH reminders initially
     const title = generateTestName("task");
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
       startDate,
+      reminders: [
+        {
+          id: "694044a2725bb97301a131e9",
+          trigger: "TRIGGER:-PT60M", // Start with 1 hour
+        },
+      ],
     });
     testProject.trackTask(task.id);
 
-    // Update to add reminders (include startDate to ensure it's preserved)
-    console.log("DEBUG: Updating task with:", {
-      id: task.id,
-      startDate,
-      reminders: [{ id: "694044a2725bb97301a131e4", trigger: "TRIGGER:-PT30M" }],
-    });
+    // Update to change reminders to a different time
+    console.log("DEBUG: Updating task reminders from 1h to 30m");
 
     const updateResult = await client.updateTask({
       id: task.id,
-      startDate, // Keep the startDate
+      startDate,
       reminders: [
         {
           id: "694044a2725bb97301a131e4",
-          trigger: "TRIGGER:-PT30M", // 30 minutes before
+          trigger: "TRIGGER:-PT30M", // Change to 30 minutes
         },
       ],
     });
@@ -300,6 +302,7 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
 
     expect(found?.reminders).toBeDefined();
     expect(found?.reminders?.length).toBeGreaterThan(0);
+    // Check that the reminder was updated to 30m (not still 1h)
     expect(found?.reminders?.[0]?.trigger).toBe("TRIGGER:-PT30M");
   });
 
