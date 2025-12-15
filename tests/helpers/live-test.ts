@@ -80,6 +80,39 @@ export async function apiDelay(ms: number = DEFAULT_API_DELAY): Promise<void> {
 }
 
 /**
+ * Create a throttled version of the TickTick client.
+ * 
+ * Wraps all async methods to automatically add a delay after each call,
+ * preventing rate limiting without manual apiDelay() calls.
+ * 
+ * @param client - The TickTick client to wrap
+ * @param delayMs - Delay in milliseconds after each API call (default: DEFAULT_API_DELAY)
+ * @returns A proxied client that throttles all async method calls
+ */
+export function createThrottledClient(
+  client: TickTickClient,
+  delayMs: number = DEFAULT_API_DELAY
+): TickTickClient {
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      
+      // Only wrap functions
+      if (typeof value !== "function") {
+        return value;
+      }
+      
+      // Return a wrapped function that adds delay after async calls
+      return async function (...args: unknown[]) {
+        const result = await value.apply(target, args);
+        await sleep(delayMs);
+        return result;
+      };
+    },
+  });
+}
+
+/**
  * Test project manager for isolated live tests.
  *
  * Creates a dedicated test project and cleans it up after tests complete.
@@ -157,9 +190,9 @@ export class TestProject {
     const errors: Error[] = [];
 
     // Delete tracked tasks
-    if (this.createdTaskIds.length > 0) {
+    if (this.createdTaskIds.length > 0 && this.project) {
       try {
-        await this.client.deleteTasks(this.createdTaskIds);
+        await this.client.deleteTasks(this.createdTaskIds, this.project.id);
         await apiDelay();
       } catch (error) {
         errors.push(error instanceof Error ? error : new Error(String(error)));
@@ -236,10 +269,14 @@ export class TestProject {
 
       for (const task of orphanedTasks) {
         try {
-          // Include projectId in delete request
-          await this.client.deleteTasks([task.id], task.projectId ?? undefined);
-          cleanedTasks++;
-          await apiDelay();
+          // Include projectId in delete request (skip if no projectId)
+          if (task.projectId) {
+            await this.client.deleteTasks([task.id], task.projectId);
+            cleanedTasks++;
+            await apiDelay();
+          } else {
+            console.warn(`[live-test] Cannot delete orphaned task ${task.id}: no projectId`);
+          }
         } catch (error) {
           console.warn(`[live-test] Failed to delete orphaned task ${task.id}:`, error);
         }
@@ -354,11 +391,15 @@ export async function cleanupAllTestResources(): Promise<void> {
 
     // Delete tasks project by project, including projectId in the delete request
     for (const [projectId, taskIds] of tasksByProject) {
+      // Skip tasks without a valid projectId
+      if (projectId === "unknown") {
+        console.warn(`[cleanup] Skipping ${taskIds.length} tasks with unknown projectId`);
+        continue;
+      }
       for (const taskId of taskIds) {
         try {
           const task = testTasks.find(t => t.id === taskId);
-          // Include projectId in delete request - some API versions require it
-          await client.deleteTasks([taskId], projectId !== "unknown" ? projectId : undefined);
+          await client.deleteTasks([taskId], projectId);
           cleanedTasks++;
           console.log(`[cleanup] Deleted task: ${task?.title || taskId}`);
           await apiDelay();
@@ -459,7 +500,19 @@ export function describeLive(name: string, fn: () => void): void {
 }
 
 /**
+ * Options for describeLiveWithProject.
+ */
+export interface LiveTestOptions {
+  /** Delay in milliseconds between API calls (default: DEFAULT_API_DELAY) */
+  throttleMs?: number;
+}
+
+/**
  * Create a test suite with automatic project setup/teardown.
+ * 
+ * The client returned by getClient() is automatically throttled to add delays
+ * between API calls, preventing rate limiting. Configure via options or
+ * TICKTICK_TEST_DELAY_MS environment variable.
  *
  * Usage:
  * ```ts
@@ -467,7 +520,7 @@ export function describeLive(name: string, fn: () => void): void {
  *   it("creates a task", async () => {
  *     const client = getClient();
  *     const project = getTestProject();
- *     // ...
+ *     // No need for manual apiDelay() calls - client is throttled automatically
  *   });
  * });
  * ```
@@ -477,7 +530,8 @@ export function describeLiveWithProject(
   fn: (ctx: {
     getClient: () => TickTickClient;
     getTestProject: () => TestProject;
-  }) => void
+  }) => void,
+  options: LiveTestOptions = {}
 ): void {
   const skipReason = getSkipReason();
 
@@ -491,15 +545,22 @@ export function describeLiveWithProject(
     return;
   }
 
+  // Allow override via env var or options
+  const throttleMs = options.throttleMs 
+    ?? (process.env.TICKTICK_TEST_DELAY_MS ? parseInt(process.env.TICKTICK_TEST_DELAY_MS, 10) : DEFAULT_API_DELAY);
+
   describe(`[LIVE] ${name}`, () => {
-    let client: TickTickClient;
+    let rawClient: TickTickClient;
+    let throttledClient: TickTickClient;
     let testProject: TestProject;
 
     // Use longer timeouts for setup/teardown since they make API calls
     // and may need to clean up orphaned resources
     beforeAll(async () => {
-      client = getLiveClient();
-      testProject = new TestProject(client);
+      rawClient = getLiveClient();
+      throttledClient = createThrottledClient(rawClient, throttleMs);
+      // Use raw client for setup to be faster (cleanup is less timing-sensitive)
+      testProject = new TestProject(rawClient);
       await testProject.setup();
     }, 60000); // 60 second timeout for setup
 
@@ -510,7 +571,7 @@ export function describeLiveWithProject(
     }, 60000); // 60 second timeout for teardown
 
     fn({
-      getClient: () => client,
+      getClient: () => throttledClient,
       getTestProject: () => testProject,
     });
   });

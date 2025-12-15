@@ -45,7 +45,7 @@ import type {
 } from "./types.js";
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   token?: string;
 }
@@ -397,10 +397,10 @@ export class TickTickClient {
    * @param taskIds - Array of task IDs to delete
    * @param projectId - Optional project ID (required by some API versions)
    */
-  async deleteTasks(taskIds: string[], projectId?: string): Promise<void> {
+  async deleteTasks(taskIds: string[], projectId: string): Promise<void> {
     const deletes = taskIds.map((taskId) => ({
       taskId,
-      ...(projectId ? { projectId } : {}),
+      projectId,
     }));
 
     const data = await this.request<unknown>(
@@ -805,7 +805,7 @@ export class TickTickClient {
    */
   async renameTag(oldName: string, newName: string): Promise<void> {
     await this.request(ENDPOINTS.TAG_RENAME, {
-      method: "POST",
+      method: "PUT",
       body: { name: oldName, newName },
     });
   }

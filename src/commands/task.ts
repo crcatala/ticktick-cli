@@ -357,7 +357,11 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
-        await client.deleteTasks([foundTask.id]);
+        if (!foundTask.projectId) {
+          printError(`Task has no projectId, cannot delete`);
+          process.exit(1);
+        }
+        await client.deleteTasks([foundTask.id], foundTask.projectId);
         printSuccess(`Deleted: ${foundTask.title}`);
       })
     );

@@ -9,12 +9,15 @@
  *   RUN_LIVE_TESTS=1 TICKTICK_TOKEN=xxx bun test tests/integration/live-api.test.ts --timeout 60000
  *
  * The --timeout flag is important because API calls can be slow.
+ * 
+ * Throttling:
+ *   The client is automatically throttled to prevent rate limiting.
+ *   Configure delay via TICKTICK_TEST_DELAY_MS environment variable (default: 500ms).
  */
 import { expect, it } from "bun:test";
 import {
   describeLiveWithProject,
   generateTestName,
-  apiDelay,
   TEST_RESOURCE_PREFIX,
 } from "../helpers/live-test.js";
 
@@ -39,8 +42,6 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
     expect(task.id).toBeDefined();
     expect(task.title).toBe(title);
     expect(task.projectId).toBe(testProject.getProjectId());
-
-    await apiDelay();
   });
 
   it("updates a task", async () => {
@@ -54,7 +55,6 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
       projectId: testProject.getProjectId(),
     });
     testProject.trackTask(task.id);
-    await apiDelay();
 
     // Update the task
     const newTitle = generateTestName("task-updated");
@@ -67,8 +67,6 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
 
     expect(updated.id).toBe(task.id);
     expect(updated.title).toBe(newTitle);
-
-    await apiDelay();
   });
 
   it("completes a task", async () => {
@@ -77,45 +75,27 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
 
     // Create a task
     const title = generateTestName("task");
-    console.log(`[DEBUG] Creating task with title: ${title}`);
-    console.log(`[DEBUG] Project ID: ${testProject.getProjectId()}`);
-    
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
     });
-    console.log(`[DEBUG] Created task with ID: ${task.id}`);
     testProject.trackTask(task.id);
-    await apiDelay();
 
     // Complete it
-    console.log(`[DEBUG] Completing task ${task.id} in project ${testProject.getProjectId()}...`);
     await client.completeTask(task.id, testProject.getProjectId());
-    console.log(`[DEBUG] Complete request sent`);
-    await apiDelay();
 
     // Verify it's in closed tasks (may need a moment to propagate)
     // Poll a few times since the API may have eventual consistency
     let found = false;
     for (let i = 0; i < 3; i++) {
-      console.log(`[DEBUG] Fetching closed tasks (attempt ${i + 1})...`);
       const closedTasks = await client.getClosedTasks("Completed");
-      console.log(`[DEBUG] Got ${closedTasks.length} closed tasks`);
-      console.log(`[DEBUG] Closed task IDs: ${closedTasks.slice(0, 10).map(t => t.id).join(", ")}${closedTasks.length > 10 ? "..." : ""}`);
-      console.log(`[DEBUG] Looking for task ID: ${task.id}`);
-      
       const matchingTask = closedTasks.find(t => t.id === task.id);
       if (matchingTask) {
-        console.log(`[DEBUG] Found matching task!`);
         found = true;
         break;
       }
-      console.log(`[DEBUG] Task not found in closed tasks, waiting...`);
-      await apiDelay(1000); // Wait longer between retries
     }
     expect(found).toBe(true);
-
-    await apiDelay();
   });
 
   it("reopens a completed task", async () => {
@@ -129,22 +109,17 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
       projectId: testProject.getProjectId(),
     });
     testProject.trackTask(task.id);
-    await apiDelay();
 
     await client.completeTask(task.id, testProject.getProjectId());
-    await apiDelay();
 
     // Reopen it
     await client.reopenTask(task.id, testProject.getProjectId());
-    await apiDelay();
 
     // Verify it's back in active tasks
     const tasks = await client.getTasks();
     const found = tasks.find(t => t.id === task.id);
     expect(found).toBeDefined();
     expect(found?.status).toBe(0);
-
-    await apiDelay();
   });
 
   it("deletes a task", async () => {
@@ -157,18 +132,14 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
       title,
       projectId: testProject.getProjectId(),
     });
-    await apiDelay();
 
     // Delete it (don't track since we're testing deletion)
-    await client.deleteTasks([task.id]);
-    await apiDelay();
+    await client.deleteTasks([task.id], testProject.getProjectId());
 
     // Verify it's gone from active tasks
     const tasks = await client.getTasks();
     const found = tasks.find(t => t.id === task.id);
     expect(found).toBeUndefined();
-
-    await apiDelay();
   });
 });
 
@@ -190,10 +161,7 @@ describeLiveWithProject("Project API", ({ getClient, getTestProject }) => {
     expect(project.name).toBe(name);
 
     // Clean up the extra project we created
-    await apiDelay();
     await client.deleteProjects([project.id]);
-
-    await apiDelay();
   });
 
   it("updates a project", async () => {
@@ -202,7 +170,6 @@ describeLiveWithProject("Project API", ({ getClient, getTestProject }) => {
     // Create a project
     const name = generateTestName("project");
     const project = await client.createProject({ name });
-    await apiDelay();
 
     // Update it
     const newName = generateTestName("project-updated");
@@ -216,10 +183,7 @@ describeLiveWithProject("Project API", ({ getClient, getTestProject }) => {
     expect(updated.name).toBe(newName);
 
     // Clean up
-    await apiDelay();
     await client.deleteProjects([project.id]);
-
-    await apiDelay();
   });
 
   it("lists projects including test project", async () => {
@@ -232,8 +196,6 @@ describeLiveWithProject("Project API", ({ getClient, getTestProject }) => {
 
     const found = projects.find(p => p.id === testProject.getProjectId());
     expect(found).toBeDefined();
-
-    await apiDelay();
   });
 
   it("gets inbox ID", async () => {
@@ -243,8 +205,6 @@ describeLiveWithProject("Project API", ({ getClient, getTestProject }) => {
 
     expect(inboxId).toBeDefined();
     expect(typeof inboxId).toBe("string");
-
-    await apiDelay();
   });
 });
 
@@ -263,8 +223,6 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
 
     expect(group.id).toBeDefined();
     expect(group.name).toBe(name);
-
-    await apiDelay();
   });
 
   it("updates a project group", async () => {
@@ -275,7 +233,6 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
     const name = generateTestName("group");
     const group = await client.createProjectGroup({ name });
     testProject.trackGroup(group.id);
-    await apiDelay();
 
     // Update it
     const newName = generateTestName("group-updated");
@@ -286,8 +243,6 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
 
     expect(updated.id).toBe(group.id);
     expect(updated.name).toBe(newName);
-
-    await apiDelay();
   });
 
   it("lists project groups", async () => {
@@ -298,7 +253,6 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
     const name = generateTestName("group");
     const group = await client.createProjectGroup({ name });
     testProject.trackGroup(group.id);
-    await apiDelay();
 
     const groups = await client.getProjectGroups();
 
@@ -306,8 +260,6 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
 
     const found = groups.find(g => g.id === group.id);
     expect(found).toBeDefined();
-
-    await apiDelay();
   });
 });
 
@@ -328,8 +280,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
     testProject.trackTag(name);
 
     expect(tag.name).toBe(name);
-
-    await apiDelay();
   });
 
   it("updates a tag", async () => {
@@ -340,7 +290,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
     const name = generateTestName("tag");
     await client.createTag({ name });
     testProject.trackTag(name);
-    await apiDelay();
 
     // Update it
     const updated = await client.updateTag({
@@ -350,8 +299,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
 
     expect(updated.name).toBe(name);
     expect(updated.color).toBe("#00FF00");
-
-    await apiDelay();
   });
 
   it("renames a tag", async () => {
@@ -361,13 +308,11 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
     // Create a tag
     const oldName = generateTestName("tag");
     await client.createTag({ name: oldName });
-    await apiDelay();
 
     // Rename it
     const newName = generateTestName("tag-renamed");
     await client.renameTag(oldName, newName);
     testProject.trackTag(newName); // Track the new name for cleanup
-    await apiDelay();
 
     // Verify the old name is gone and new name exists
     const tags = await client.getTags();
@@ -376,8 +321,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
 
     expect(oldFound).toBeUndefined();
     expect(newFound).toBeDefined();
-
-    await apiDelay();
   });
 
   it("lists tags", async () => {
@@ -388,7 +331,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
     const name = generateTestName("tag");
     await client.createTag({ name });
     testProject.trackTag(name);
-    await apiDelay();
 
     const tags = await client.getTags();
 
@@ -396,8 +338,6 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
 
     const found = tags.find(t => t.name === name);
     expect(found).toBeDefined();
-
-    await apiDelay();
   });
 
   it("deletes a tag", async () => {
@@ -406,19 +346,15 @@ describeLiveWithProject("Tag API", ({ getClient, getTestProject }) => {
     // Create a tag
     const name = generateTestName("tag");
     await client.createTag({ name });
-    await apiDelay();
 
     // Delete it (don't track since we're testing deletion)
     await client.deleteTag(name);
-    await apiDelay();
 
     // Verify it's gone
     const tags = await client.getTags();
     const found = tags.find(t => t.name === name);
 
     expect(found).toBeUndefined();
-
-    await apiDelay();
   });
 });
 
@@ -437,8 +373,6 @@ describeLiveWithProject("Schema Validation", ({ getClient }) => {
     // Basic structure checks
     expect(Array.isArray(batch.projectProfiles ?? [])).toBe(true);
     expect(Array.isArray(batch.tags ?? [])).toBe(true);
-
-    await apiDelay();
   });
 
   it("validates user profile against schema", async () => {
@@ -449,8 +383,6 @@ describeLiveWithProject("Schema Validation", ({ getClient }) => {
     expect(profile).toBeDefined();
     // Profile should have at least some identifying info
     expect(profile.username ?? profile.email ?? profile.id).toBeDefined();
-
-    await apiDelay();
   });
 
   it("validates user status against schema", async () => {
@@ -459,7 +391,5 @@ describeLiveWithProject("Schema Validation", ({ getClient }) => {
     const status = await client.getUserStatus();
 
     expect(status).toBeDefined();
-
-    await apiDelay();
   });
 });
