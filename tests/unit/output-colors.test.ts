@@ -8,8 +8,17 @@ async function importWithEnv(overrides: Record<string, string | undefined>) {
     FORCE_COLOR: process.env.FORCE_COLOR,
   };
 
-  process.env.NO_COLOR = overrides.NO_COLOR;
-  process.env.FORCE_COLOR = overrides.FORCE_COLOR;
+  // Must delete undefined vars, not set them to "undefined" string
+  if (overrides.NO_COLOR === undefined) {
+    delete process.env.NO_COLOR;
+  } else {
+    process.env.NO_COLOR = overrides.NO_COLOR;
+  }
+  if (overrides.FORCE_COLOR === undefined) {
+    delete process.env.FORCE_COLOR;
+  } else {
+    process.env.FORCE_COLOR = overrides.FORCE_COLOR;
+  }
 
   const moduleUrl = new URL(
     `../../src/output/colors.js?cacheBust=${Date.now()}`,
@@ -19,8 +28,17 @@ async function importWithEnv(overrides: Record<string, string | undefined>) {
   try {
     return await import(moduleUrl);
   } finally {
-    process.env.NO_COLOR = original.NO_COLOR;
-    process.env.FORCE_COLOR = original.FORCE_COLOR;
+    // Restore original values (delete if was undefined)
+    if (original.NO_COLOR === undefined) {
+      delete process.env.NO_COLOR;
+    } else {
+      process.env.NO_COLOR = original.NO_COLOR;
+    }
+    if (original.FORCE_COLOR === undefined) {
+      delete process.env.FORCE_COLOR;
+    } else {
+      process.env.FORCE_COLOR = original.FORCE_COLOR;
+    }
   }
 }
 
