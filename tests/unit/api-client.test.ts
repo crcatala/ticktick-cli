@@ -440,7 +440,8 @@ describe("TickTickClient", () => {
     expect(body.update[0].groupId).toBe("new-folder-456");
   });
 
-  test("updateProject with empty groupId clears folder", async () => {
+  test("updateProject with NONE groupId removes from folder", async () => {
+    // The TickTick API uses "NONE" as a magic value to remove a project from a folder
     let capturedBody: unknown;
 
     server.use(
@@ -451,10 +452,10 @@ describe("TickTickClient", () => {
     );
 
     const client = await createClient();
-    await client.updateProject({ id: "proj-123", groupId: "" });
+    await client.updateProject({ id: "proj-123", groupId: "NONE" });
 
     const body = capturedBody as { update: Array<{ id: string; groupId: string }> };
     expect(body.update[0].id).toBe("proj-123");
-    expect(body.update[0].groupId).toBe("");
+    expect(body.update[0].groupId).toBe("NONE");
   });
 });

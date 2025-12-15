@@ -324,10 +324,8 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
     await client.deleteProjects([project.id]);
   });
 
-  it("clearing groupId does not remove project from folder (API limitation)", async () => {
-    // NOTE: The TickTick API does not support removing a project from a folder
-    // by setting groupId to empty string or null. The API silently ignores this.
-    // This test documents the current API behavior.
+  it("removes project from folder using NONE", async () => {
+    // The TickTick API uses "NONE" as a magic value to remove a project from a folder
     const client = getClient();
     const testProject = getTestProject();
 
@@ -345,19 +343,19 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
 
     expect(project.groupId).toBe(folder.id);
 
-    // Attempt to remove from folder by setting groupId to empty string
+    // Remove from folder by setting groupId to "NONE"
     await client.updateProject({
       id: project.id,
-      groupId: "",
+      groupId: "NONE",
     });
 
-    // Verify the project STILL has its folder (API ignores empty groupId)
+    // Verify the project no longer has a folder
     const projects = await client.getProjects();
     const updatedProject = projects.find(p => p.id === project.id);
 
     expect(updatedProject).toBeDefined();
-    // groupId is NOT cleared - the API ignores empty string
-    expect(updatedProject?.groupId).toBe(folder.id);
+    // groupId should be null/undefined after removal with "NONE"
+    expect(updatedProject?.groupId).toBeFalsy();
 
     // Clean up the project
     await client.deleteProjects([project.id]);
