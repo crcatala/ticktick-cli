@@ -260,7 +260,8 @@ export class TickTickClient {
     status: "Completed" | "Abandoned" = "Completed",
     projectId?: string
   ): Promise<Task[]> {
-    const endpoint = `${ENDPOINTS.CLOSED_TASKS}?status=${status}`;
+    // Match web app query format: from=&to=&status=X
+    const endpoint = `${ENDPOINTS.CLOSED_TASKS}?from=&to=&status=${status}`;
     const data = await this.request<unknown>(endpoint);
     const tasks = validateArray(TaskSchema, data, this.validation, "Task");
 
