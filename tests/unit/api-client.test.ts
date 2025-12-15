@@ -694,4 +694,159 @@ describe("TickTickClient", () => {
     expect(body.update[0].id).toBe("proj-123");
     expect(body.update[0].groupId).toBe("NONE");
   });
+
+  // ============================================================
+  // Batch Operations Tests
+  // ============================================================
+
+  test("completeTasks sends multiple tasks in single request", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-1": "etag1", "task-2": "etag2" } });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.completeTasks([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+    ]);
+
+    const body = capturedBody as { update: Array<{ id: string; projectId: string; status: number; completedTime: string }> };
+    expect(body.update).toHaveLength(2);
+    expect(body.update[0].id).toBe("task-1");
+    expect(body.update[0].projectId).toBe("proj-a");
+    expect(body.update[0].status).toBe(2);
+    expect(body.update[0].completedTime).toBeDefined();
+    expect(body.update[1].id).toBe("task-2");
+    expect(body.update[1].projectId).toBe("proj-b");
+    expect(body.update[1].status).toBe(2);
+
+    expect(result.succeeded).toEqual(["task-1", "task-2"]);
+    expect(result.failed).toEqual([]);
+  });
+
+  test("completeTasks reports partial failures", async () => {
+    server.use(
+      http.post(`${API_BASE}/batch/task`, () => {
+        return HttpResponse.json({
+          id2etag: { "task-1": "etag1" },
+          id2error: { "task-2": "Task not found" },
+        });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.completeTasks([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+    ]);
+
+    expect(result.succeeded).toEqual(["task-1"]);
+    expect(result.failed).toEqual([{ taskId: "task-2", error: "Task not found" }]);
+  });
+
+  test("abandonTasks sends multiple tasks with status -1", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-1": "etag1", "task-2": "etag2" } });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.abandonTasks([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+    ]);
+
+    const body = capturedBody as { update: Array<{ id: string; projectId: string; status: number; completedTime: string }> };
+    expect(body.update).toHaveLength(2);
+    expect(body.update[0].status).toBe(-1);
+    expect(body.update[1].status).toBe(-1);
+
+    expect(result.succeeded).toEqual(["task-1", "task-2"]);
+    expect(result.failed).toEqual([]);
+  });
+
+  test("reopenTasks sends multiple tasks with status 0", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-1": "etag1", "task-2": "etag2" } });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.reopenTasks([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+    ]);
+
+    const body = capturedBody as { update: Array<{ id: string; projectId: string; status: number }> };
+    expect(body.update).toHaveLength(2);
+    expect(body.update[0].id).toBe("task-1");
+    expect(body.update[0].status).toBe(0);
+    expect(body.update[1].id).toBe("task-2");
+    expect(body.update[1].status).toBe(0);
+    // reopenTasks should NOT include completedTime
+    expect((body.update[0] as Record<string, unknown>).completedTime).toBeUndefined();
+
+    expect(result.succeeded).toEqual(["task-1", "task-2"]);
+    expect(result.failed).toEqual([]);
+  });
+
+  test("deleteTasksBatch sends tasks from different projects", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: {} });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.deleteTasksBatch([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+      { taskId: "task-3", projectId: "proj-a" },
+    ]);
+
+    const body = capturedBody as { delete: Array<{ taskId: string; projectId: string }> };
+    expect(body.delete).toHaveLength(3);
+    expect(body.delete[0]).toEqual({ taskId: "task-1", projectId: "proj-a" });
+    expect(body.delete[1]).toEqual({ taskId: "task-2", projectId: "proj-b" });
+    expect(body.delete[2]).toEqual({ taskId: "task-3", projectId: "proj-a" });
+
+    expect(result.succeeded).toEqual(["task-1", "task-2", "task-3"]);
+    expect(result.failed).toEqual([]);
+  });
+
+  test("deleteTasksBatch reports partial failures", async () => {
+    server.use(
+      http.post(`${API_BASE}/batch/task`, () => {
+        return HttpResponse.json({
+          id2etag: {},
+          id2error: { "task-2": "Permission denied" },
+        });
+      })
+    );
+
+    const client = await createClient();
+    const result = await client.deleteTasksBatch([
+      { taskId: "task-1", projectId: "proj-a" },
+      { taskId: "task-2", projectId: "proj-b" },
+    ]);
+
+    expect(result.succeeded).toEqual(["task-1"]);
+    expect(result.failed).toEqual([{ taskId: "task-2", error: "Permission denied" }]);
+  });
 });
