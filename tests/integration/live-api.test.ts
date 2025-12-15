@@ -144,6 +144,166 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
 });
 
 // ============================================================
+// Batch Operations Tests
+// ============================================================
+
+describeLiveWithProject("Batch Task Operations", ({ getClient, getTestProject }) => {
+  it("completes multiple tasks in a single batch", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create multiple tasks
+    const tasks = [];
+    for (let i = 0; i < 3; i++) {
+      const task = await client.createTask({
+        title: generateTestName(`batch-complete-${i}`),
+        projectId: testProject.getProjectId(),
+      });
+      testProject.trackTask(task.id);
+      tasks.push(task);
+    }
+
+    // Batch complete all tasks
+    const result = await client.completeTasks(
+      tasks.map(t => ({ taskId: t.id, projectId: testProject.getProjectId() }))
+    );
+
+    expect(result.succeeded).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+
+    // Verify all tasks are completed
+    const closedTasks = await client.getClosedTasks("Completed");
+    for (const task of tasks) {
+      const found = closedTasks.find(t => t.id === task.id);
+      expect(found).toBeDefined();
+      expect(found?.status).toBe(2);
+    }
+  });
+
+  it("abandons multiple tasks in a single batch", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create multiple tasks
+    const tasks = [];
+    for (let i = 0; i < 3; i++) {
+      const task = await client.createTask({
+        title: generateTestName(`batch-abandon-${i}`),
+        projectId: testProject.getProjectId(),
+      });
+      testProject.trackTask(task.id);
+      tasks.push(task);
+    }
+
+    // Batch abandon all tasks
+    const result = await client.abandonTasks(
+      tasks.map(t => ({ taskId: t.id, projectId: testProject.getProjectId() }))
+    );
+
+    expect(result.succeeded).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+
+    // Verify all tasks are abandoned
+    const abandonedTasks = await client.getClosedTasks("Abandoned");
+    for (const task of tasks) {
+      const found = abandonedTasks.find(t => t.id === task.id);
+      expect(found).toBeDefined();
+      expect(found?.status).toBe(-1);
+    }
+  });
+
+  it("reopens multiple completed tasks in a single batch", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create and complete multiple tasks
+    const tasks = [];
+    for (let i = 0; i < 3; i++) {
+      const task = await client.createTask({
+        title: generateTestName(`batch-reopen-${i}`),
+        projectId: testProject.getProjectId(),
+      });
+      testProject.trackTask(task.id);
+      await client.completeTask(task.id, testProject.getProjectId());
+      tasks.push(task);
+    }
+
+    // Batch reopen all tasks
+    const result = await client.reopenTasks(
+      tasks.map(t => ({ taskId: t.id, projectId: testProject.getProjectId() }))
+    );
+
+    expect(result.succeeded).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+
+    // Verify all tasks are active again
+    const activeTasks = await client.getTasks();
+    for (const task of tasks) {
+      const found = activeTasks.find(t => t.id === task.id);
+      expect(found).toBeDefined();
+      expect(found?.status).toBe(0);
+    }
+  });
+
+  it("deletes multiple tasks in a single batch", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create multiple tasks (don't track - we're testing deletion)
+    const tasks = [];
+    for (let i = 0; i < 3; i++) {
+      const task = await client.createTask({
+        title: generateTestName(`batch-delete-${i}`),
+        projectId: testProject.getProjectId(),
+      });
+      tasks.push(task);
+    }
+
+    // Batch delete all tasks
+    const result = await client.deleteTasksBatch(
+      tasks.map(t => ({ taskId: t.id, projectId: testProject.getProjectId() }))
+    );
+
+    expect(result.succeeded).toHaveLength(3);
+    expect(result.failed).toHaveLength(0);
+
+    // Verify all tasks are gone
+    const activeTasks = await client.getTasks();
+    for (const task of tasks) {
+      const found = activeTasks.find(t => t.id === task.id);
+      expect(found).toBeUndefined();
+    }
+  });
+
+  it("handles batch operation with tasks from same project", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create tasks in the same project
+    const task1 = await client.createTask({
+      title: generateTestName("batch-same-proj-1"),
+      projectId: testProject.getProjectId(),
+    });
+    testProject.trackTask(task1.id);
+
+    const task2 = await client.createTask({
+      title: generateTestName("batch-same-proj-2"),
+      projectId: testProject.getProjectId(),
+    });
+    testProject.trackTask(task2.id);
+
+    // Batch complete both
+    const result = await client.completeTasks([
+      { taskId: task1.id, projectId: testProject.getProjectId() },
+      { taskId: task2.id, projectId: testProject.getProjectId() },
+    ]);
+
+    expect(result.succeeded).toHaveLength(2);
+    expect(result.failed).toHaveLength(0);
+  });
+});
+
+// ============================================================
 // Reminder Tests
 // ============================================================
 
