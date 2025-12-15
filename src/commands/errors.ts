@@ -3,6 +3,7 @@
  */
 import { printError } from "../output/index.js";
 import { AuthError, ApiError, ClientError } from "../utils/errors.js";
+import { ValidationError } from "../schemas/index.js";
 
 /**
  * Wrap an async command action with error handling.
@@ -16,6 +17,12 @@ export function handleError<T extends unknown[]>(
     } catch (error) {
       if (error instanceof AuthError) {
         printError(error.message);
+        process.exit(1);
+      }
+
+      if (error instanceof ValidationError) {
+        printError(error.formatForUser());
+        printError("\nTip: Use --validation=warn to continue despite validation errors, or --validation=off to skip validation.");
         process.exit(1);
       }
 

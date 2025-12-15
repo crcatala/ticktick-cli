@@ -6,6 +6,7 @@ import { getClient } from "../api/client.js";
 import { printInfo, printJson, printKeyValue } from "../output/index.js";
 import { formatDate } from "../utils/date.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createUserCommand(): Command {
   const user = new Command("user").description("User information");
@@ -16,8 +17,9 @@ export function createUserCommand(): Command {
     .description("Show user profile")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const profile = await client.getProfile();
 
         if (options.json) {
@@ -55,8 +57,9 @@ export function createUserCommand(): Command {
     .description("Show subscription status")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const status = await client.getUserStatus();
 
         if (options.json) {
@@ -92,8 +95,9 @@ export function createUserCommand(): Command {
     .description("Show usage statistics")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const stats = await client.getUserStats();
 
         if (options.json) {

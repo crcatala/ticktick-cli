@@ -19,6 +19,7 @@ import {
   printKeyValue,
 } from "../output/index.js";
 import { AuthError, ApiError } from "../utils/errors.js";
+import { getGlobalOptions } from "../index.js";
 
 /**
  * Prompt for input.
@@ -118,8 +119,9 @@ export function createAuthCommand(): Command {
       "Store token in plaintext config instead of keyring (insecure)"
     )
     .option("-v, --verbose", "Show detailed debug output")
-    .action(async (options) => {
+    .action(async function (this: Command, options) {
       const verbose = options.verbose ?? false;
+      const globalOpts = getGlobalOptions(this);
 
       try {
         let username = options.username;
@@ -160,7 +162,7 @@ export function createAuthCommand(): Command {
         }
 
         // Attempt login
-        const result = await login(username, password, totpCode, verbose);
+        const result = await login(username, password, totpCode, verbose, globalOpts.validation);
 
         if (result.need2FA && !totpCode) {
           printError(
@@ -184,7 +186,7 @@ export function createAuthCommand(): Command {
         // Try to get display name
         let displayName = username;
         try {
-          const client = await getClient();
+          const client = await getClient({ validation: globalOpts.validation });
           const profile = await client.getProfile();
           displayName = profile.name || profile.username || username;
         } catch {
@@ -232,9 +234,10 @@ export function createAuthCommand(): Command {
     .command("status")
     .description("Show authentication status and user info")
     .option("--json", "Output as JSON")
-    .action(async (options) => {
+    .action(async function (this: Command, options) {
       const authData = await getAuth();
       const storageType = getStorageType();
+      const globalOpts = getGlobalOptions(this);
 
       if (!authData) {
         if (options.json) {
@@ -246,7 +249,7 @@ export function createAuthCommand(): Command {
       }
 
       try {
-        const client = await getClient();
+        const client = await getClient({ validation: globalOpts.validation });
         const profile = await client.getProfile();
 
         if (options.json) {
@@ -286,7 +289,8 @@ export function createAuthCommand(): Command {
     .command("whoami")
     .description("Show current user (alias for status)")
     .option("--json", "Output as JSON")
-    .action(async (options) => {
+    .action(async function (this: Command, options) {
+      const globalOpts = getGlobalOptions(this);
       // Delegate to status command
       const statusCmd = auth.commands.find((c) => c.name() === "status");
       if (statusCmd) {

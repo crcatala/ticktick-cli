@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { getClient } from "../api/client.js";
 import { printInfo, printJson, printKeyValue } from "../output/index.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createSyncCommand(): Command {
   const sync = new Command("sync").description("Sync and backup");
@@ -15,8 +16,9 @@ export function createSyncCommand(): Command {
     .description("Get full state snapshot (tasks, projects, tags, groups)")
     .option("--json", "Output raw JSON (useful for backups)")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const batch = await client.getBatch();
 
         if (options.json) {

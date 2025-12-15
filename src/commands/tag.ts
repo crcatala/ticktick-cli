@@ -12,6 +12,7 @@ import {
   printTagsTable,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
+import { getGlobalOptions } from "../index.js";
 
 export function createTagCommand(): Command {
   const tag = new Command("tag").description("Manage tags");
@@ -22,8 +23,9 @@ export function createTagCommand(): Command {
     .description("List all tags")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
         const tags = await client.getTags();
 
         if (options.json) {
@@ -44,8 +46,9 @@ export function createTagCommand(): Command {
     .option("-p, --parent <name>", "Parent tag name")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (name: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, name: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         const tagData: Parameters<typeof client.createTag>[0] = { name };
 
@@ -71,8 +74,9 @@ export function createTagCommand(): Command {
     .command("rename <oldName> <newName>")
     .description("Rename a tag")
     .action(
-      handleError(async (oldName: string, newName: string) => {
-        const client = await getClient();
+      handleError(async function (this: Command, oldName: string, newName: string) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Verify tag exists
         const tags = await client.getTags();
@@ -96,8 +100,9 @@ export function createTagCommand(): Command {
     .option("-p, --parent <name>", "New parent tag name")
     .option("--json", "Output as JSON")
     .action(
-      handleError(async (name: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, name: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Find the tag first
         const tags = await client.getTags();
@@ -133,8 +138,9 @@ export function createTagCommand(): Command {
     .description("Delete a tag")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async (name: string, options) => {
-        const client = await getClient();
+      handleError(async function (this: Command, name: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
 
         // Verify tag exists
         const tags = await client.getTags();
