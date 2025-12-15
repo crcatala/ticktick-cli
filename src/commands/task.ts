@@ -27,7 +27,9 @@ import {
   filterByProject,
   filterByTag,
   filterByPriority,
+  filterBySearch,
   findTaskById,
+  resolveProjectId,
 } from "./task-filters.js";
 import { getGlobalOptions } from "../index.js";
 
@@ -37,24 +39,72 @@ export function createTaskCommand(): Command {
   // list command
   task
     .command("list")
-    .description("List all active tasks")
-    .option("-p, --project <id>", "Filter by project ID")
+    .description("List tasks")
+    .option("-p, --project <name>", "Filter by project name or ID")
     .option("-t, --tag <name>", "Filter by tag name")
     .option("--priority <level>", "Filter by priority (high, medium, low, none)")
+    .option("-s, --search <query>", "Search in title, content, description, and checklist items")
+    .option("--status <status>", "Task status: active, completed, abandoned, all (default: active)")
+    .option("--case-sensitive", "Use case-sensitive search")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
-        let tasks = await client.getTasks();
-
-        // Apply filters
-        if (options.project) {
-          tasks = filterByProject(tasks, options.project);
+        
+        // Validate status option early
+        const status = options.status?.toLowerCase() ?? "active";
+        if (!["active", "completed", "abandoned", "all"].includes(status)) {
+          printError(`Invalid status: ${status}. Use: active, completed, abandoned, or all`);
+          process.exit(1);
         }
+
+        // Resolve project filter first (fail fast before fetching tasks)
+        let resolvedProjectId: string | undefined;
+        if (options.project) {
+          const projects = await client.getProjects();
+          resolvedProjectId = resolveProjectId(projects, options.project);
+          if (!resolvedProjectId) {
+            printError(`Project not found: ${options.project}`);
+            process.exit(1);
+          }
+        }
+        
+        // Fetch tasks based on status
+        let tasks: Task[] = [];
+        
+        if (status === "active") {
+          tasks = await client.getTasks();
+        } else if (status === "completed") {
+          tasks = await client.getClosedTasks("Completed");
+        } else if (status === "abandoned") {
+          tasks = await client.getClosedTasks("Abandoned");
+        } else if (status === "all") {
+          // Fetch both active and closed tasks in parallel
+          const [activeTasks, completedTasks, abandonedTasks] = await Promise.all([
+            client.getTasks(),
+            client.getClosedTasks("Completed"),
+            client.getClosedTasks("Abandoned"),
+          ]);
+          tasks = [...activeTasks, ...completedTasks, ...abandonedTasks];
+        }
+
+        // Apply search filter
+        if (options.search) {
+          tasks = filterBySearch(tasks, options.search, options.caseSensitive);
+        }
+
+        // Apply project filter
+        if (resolvedProjectId) {
+          tasks = filterByProject(tasks, resolvedProjectId);
+        }
+        
+        // Apply tag filter
         if (options.tag) {
           tasks = filterByTag(tasks, options.tag);
         }
+        
+        // Apply priority filter
         if (options.priority) {
           tasks = filterByPriority(tasks, options.priority);
         }
@@ -65,6 +115,7 @@ export function createTaskCommand(): Command {
           printInfo("No tasks found");
         } else {
           printTasksTable(tasks);
+          printInfo(`\n${tasks.length} task${tasks.length === 1 ? "" : "s"} found`);
         }
       })
     );

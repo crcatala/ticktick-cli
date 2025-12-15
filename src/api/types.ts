@@ -47,6 +47,7 @@ export interface ChecklistItemInput {
   status: number;
   sortOrder: number;
   completedTime?: string;
+  [key: string]: unknown;  // Allow extra fields to match Task.items type
 }
 
 export interface TaskUpdate extends Partial<TaskCreate> {
