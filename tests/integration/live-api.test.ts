@@ -493,8 +493,10 @@ describeLiveWithProject("Recurring Task API", ({ getClient, getTestProject }) =>
     testProject.trackTask(task.id);
 
     // Update to add repeat pattern
+    // Note: projectId is required for the API to properly update repeat fields
     await client.updateTask({
       id: task.id,
+      projectId: testProject.getProjectId(),
       repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
       repeatFrom: "2",
       repeatFirstDate: startDate,
@@ -534,10 +536,15 @@ describeLiveWithProject("Recurring Task API", ({ getClient, getTestProject }) =>
     expect(found?.repeatFlag).toBe("RRULE:FREQ=DAILY;INTERVAL=1");
 
     // Update to clear repeat pattern
+    // Note: projectId is required for the API to properly update repeat fields
+    // TickTick API seems to need explicit null values to clear repeat fields
     await client.updateTask({
       id: task.id,
-      repeatFlag: "",
-    });
+      projectId: testProject.getProjectId(),
+      repeatFlag: null,
+      repeatFrom: null,
+      repeatFirstDate: null,
+    } as Parameters<typeof client.updateTask>[0]);
 
     // Verify repeat flag was cleared
     tasks = await client.getTasks();
@@ -545,7 +552,8 @@ describeLiveWithProject("Recurring Task API", ({ getClient, getTestProject }) =>
 
     expect(found).toBeDefined();
     // repeatFlag should be empty/null/undefined after clearing
-    expect(found?.repeatFlag ?? "").toBe("");
+    // The API may return null, undefined, or empty string
+    expect(found?.repeatFlag || null).toBeFalsy();
   });
 });
 
