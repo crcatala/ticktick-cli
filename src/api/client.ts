@@ -5,6 +5,7 @@
  */
 import { getAuth } from "../config/config.js";
 import { AuthError, ApiError, ClientError } from "../utils/errors.js";
+import { calculateBackoffDelay, sleep } from "../utils/backoff.js";
 import { BASE_URL, ENDPOINTS } from "./endpoints.js";
 import {
   validateOne,
@@ -44,7 +45,7 @@ import type {
 } from "./types.js";
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   token?: string;
 }
@@ -60,7 +61,17 @@ interface RequestOptions {
  *
  * Total: 12 bytes = 24 hex characters
  */
-function generateDeviceId(): string {
+/**
+ * Generate a MongoDB ObjectId-style ID.
+ *
+ * Format: 24-char hex string:
+ * - Bytes 0-3 (8 hex chars): Unix timestamp in seconds
+ * - Bytes 4-8 (10 hex chars): Random value
+ * - Bytes 9-11 (6 hex chars): Counter/random
+ *
+ * This format is required by the TickTick API for task/project/group IDs.
+ */
+function generateObjectId(): string {
   // 4 bytes (8 hex chars): Unix timestamp
   const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
 
@@ -79,6 +90,14 @@ function generateDeviceId(): string {
   ).join("");
 
   return timestamp + random + counter;
+}
+
+/**
+ * Generate a unique device ID for the X-Device header.
+ * Uses the same ObjectId format that TickTick expects.
+ */
+function generateDeviceId(): string {
+  return generateObjectId();
 }
 
 /**
@@ -139,7 +158,6 @@ export class TickTickClient {
     const { method = "GET", body } = options;
     const url = `${BASE_URL}${endpoint}`;
     const maxRetries = 3;
-    const baseDelay = 1000; // 1 second
 
     if (this.debug) {
       console.log(`[debug] ${method} ${url}${retryCount > 0 ? ` (retry ${retryCount})` : ""}`);
@@ -160,11 +178,11 @@ export class TickTickClient {
 
     // Handle rate limiting with exponential backoff
     if (response.status === 429 && retryCount < maxRetries) {
-      const delay = baseDelay * Math.pow(2, retryCount);
+      const delay = calculateBackoffDelay(retryCount);
       if (this.debug) {
         console.log(`[debug] Rate limited. Retrying in ${delay}ms...`);
       }
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await sleep(delay);
       return this.request<T>(endpoint, options, retryCount + 1);
     }
 
@@ -260,7 +278,8 @@ export class TickTickClient {
     status: "Completed" | "Abandoned" = "Completed",
     projectId?: string
   ): Promise<Task[]> {
-    const endpoint = `${ENDPOINTS.CLOSED_TASKS}?status=${status}`;
+    // Match web app query format: from=&to=&status=X
+    const endpoint = `${ENDPOINTS.CLOSED_TASKS}?from=&to=&status=${status}`;
     const data = await this.request<unknown>(endpoint);
     const tasks = validateArray(TaskSchema, data, this.validation, "Task");
 
@@ -276,9 +295,11 @@ export class TickTickClient {
    * Note: API doesn't return full task object; some fields may only be populated after refetching.
    */
   async createTask(task: TaskCreate): Promise<Task> {
+    // Generate a temporary ID for the request
+    const tempId = generateObjectId();
     const taskWithId: Task = {
       ...task,
-      id: crypto.randomUUID(),
+      id: tempId,
     };
 
     const data = await this.request<unknown>(
@@ -302,11 +323,36 @@ export class TickTickClient {
       throw new ClientError(`Failed to create task: ${errorMessages.join("; ")}`);
     }
 
-    // Add etag if returned by API
-    if (response.id2etag && taskWithId.id) {
-      taskWithId.etag = response.id2etag[taskWithId.id];
+    // The API may return a different ID than what we sent.
+    // Check id2etag for the real ID mapping, or fetch to find the created task.
+    if (response.id2etag) {
+      const ids = Object.keys(response.id2etag);
+      // If we get back an ID different from what we sent, use that
+      const realId = ids.find(id => id !== tempId) || ids[0];
+      if (realId) {
+        taskWithId.id = realId;
+        taskWithId.etag = response.id2etag[realId];
+        return taskWithId;
+      }
+      // If the temp ID is in the response, the API accepted our ID
+      if (response.id2etag[tempId]) {
+        taskWithId.etag = response.id2etag[tempId];
+        return taskWithId;
+      }
     }
 
+    // Fallback: fetch tasks to find the one we just created by title
+    // This handles the case where the API assigns a completely different ID
+    const allTasks = await this.getTasks();
+    const createdTask = allTasks.find(t => 
+      t.title === task.title && 
+      t.projectId === task.projectId
+    );
+    if (createdTask) {
+      return createdTask;
+    }
+
+    // If we still can't find it, return what we have
     return taskWithId;
   }
 
@@ -348,9 +394,14 @@ export class TickTickClient {
 
   /**
    * Delete tasks.
+   * @param taskIds - Array of task IDs to delete
+   * @param projectId - Optional project ID (required by some API versions)
    */
-  async deleteTasks(taskIds: string[]): Promise<void> {
-    const deletes = taskIds.map((taskId) => ({ taskId }));
+  async deleteTasks(taskIds: string[], projectId: string): Promise<void> {
+    const deletes = taskIds.map((taskId) => ({
+      taskId,
+      projectId,
+    }));
 
     const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,
@@ -376,23 +427,37 @@ export class TickTickClient {
 
   /**
    * Mark a task as complete.
+   * Requires status=2, completedTime, and projectId to be set.
    */
-  async completeTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: 2 });
+  async completeTask(taskId: string, projectId: string): Promise<void> {
+    const completedTime = new Date().toISOString();
+    await this.updateTask({ 
+      id: taskId, 
+      projectId,
+      status: 2,
+      completedTime,
+    });
   }
 
   /**
    * Mark a task as abandoned.
+   * Requires status=-1, completedTime, and projectId to be set.
    */
-  async abandonTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: -1 });
+  async abandonTask(taskId: string, projectId: string): Promise<void> {
+    const completedTime = new Date().toISOString();
+    await this.updateTask({ 
+      id: taskId, 
+      projectId,
+      status: -1,
+      completedTime,
+    });
   }
 
   /**
    * Reopen a closed task.
    */
-  async reopenTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: 0 });
+  async reopenTask(taskId: string, projectId: string): Promise<void> {
+    await this.updateTask({ id: taskId, projectId, status: 0 });
   }
 
   /**
@@ -443,7 +508,7 @@ export class TickTickClient {
   async createProject(project: ProjectCreate): Promise<Project> {
     const projectWithId: Project = {
       ...project,
-      id: crypto.randomUUID(),
+      id: generateObjectId(),
     };
 
     const data = await this.request<unknown>(
@@ -512,15 +577,15 @@ export class TickTickClient {
 
   /**
    * Delete projects.
+   * Uses the /batch/order endpoint with orderByType payload structure.
    */
   async deleteProjects(projectIds: string[]): Promise<void> {
-    const deletes = projectIds.map((id) => ({ id }));
-
+    // Uses same format as groups: { add: [], update: [], delete: ["id1", "id2"] }
     const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT,
       {
         method: "POST",
-        body: { delete: deletes },
+        body: { add: [], update: [], delete: projectIds },
       }
     );
     const response = validateOne(
@@ -558,7 +623,7 @@ export class TickTickClient {
   async createProjectGroup(group: ProjectGroupCreate): Promise<ProjectGroup> {
     const groupWithId: ProjectGroup = {
       ...group,
-      id: crypto.randomUUID(),
+      id: generateObjectId(),
     };
 
     const data = await this.request<unknown>(
@@ -627,15 +692,14 @@ export class TickTickClient {
 
   /**
    * Delete project groups.
+   * Uses array of IDs directly (not objects with id property).
    */
   async deleteProjectGroups(groupIds: string[]): Promise<void> {
-    const deletes = groupIds.map((id) => ({ id }));
-
     const data = await this.request<unknown>(
       ENDPOINTS.BATCH_PROJECT_GROUP,
       {
         method: "POST",
-        body: { delete: deletes },
+        body: { add: [], update: [], delete: groupIds },
       }
     );
     const response = validateOne(
@@ -738,10 +802,11 @@ export class TickTickClient {
 
   /**
    * Rename a tag.
+   * Note: Uses PUT method per TickTick API (not POST).
    */
   async renameTag(oldName: string, newName: string): Promise<void> {
     await this.request(ENDPOINTS.TAG_RENAME, {
-      method: "POST",
+      method: "PUT",
       body: { name: oldName, newName },
     });
   }
@@ -751,6 +816,15 @@ export class TickTickClient {
    */
   async deleteTag(name: string): Promise<void> {
     await this.request(`${ENDPOINTS.TAG_DELETE}/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Empty the trash (permanently delete all trashed items).
+   */
+  async emptyTrash(): Promise<void> {
+    await this.request(ENDPOINTS.TRASH_CLEANUP, {
       method: "DELETE",
     });
   }

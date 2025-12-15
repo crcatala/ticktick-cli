@@ -275,7 +275,11 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
-        await client.completeTask(foundTask.id);
+        if (!foundTask.projectId) {
+          printError(`Task has no projectId: ${id}`);
+          process.exit(1);
+        }
+        await client.completeTask(foundTask.id, foundTask.projectId);
         printSuccess(`Completed: ${foundTask.title}`);
       })
     );
@@ -298,7 +302,11 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
-        await client.abandonTask(foundTask.id);
+        if (!foundTask.projectId) {
+          printError(`Task has no projectId: ${id}`);
+          process.exit(1);
+        }
+        await client.abandonTask(foundTask.id, foundTask.projectId);
         printSuccess(`Abandoned: ${foundTask.title}`);
       })
     );
@@ -321,7 +329,11 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
-        await client.reopenTask(foundTask.id);
+        if (!foundTask.projectId) {
+          printError(`Task has no projectId: ${id}`);
+          process.exit(1);
+        }
+        await client.reopenTask(foundTask.id, foundTask.projectId);
         printSuccess(`Reopened: ${foundTask.title}`);
       })
     );
@@ -345,7 +357,11 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
-        await client.deleteTasks([foundTask.id]);
+        if (!foundTask.projectId) {
+          printError(`Task has no projectId, cannot delete`);
+          process.exit(1);
+        }
+        await client.deleteTasks([foundTask.id], foundTask.projectId);
         printSuccess(`Deleted: ${foundTask.title}`);
       })
     );
