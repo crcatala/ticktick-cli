@@ -6,7 +6,7 @@ const API_BASE = BASE_URL;
 
 const createClient = async () => {
   const { TickTickClient } = await import("../../src/api/client.js");
-  return new TickTickClient("user", "token", { debug: true });
+  return new TickTickClient("user", "token");
 };
 
 describe("TickTickClient", () => {
