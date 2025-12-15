@@ -5,25 +5,39 @@ import { setupServer } from "msw/node";
 // Default handlers can be extended per-test via server.use(...)
 export const server = setupServer();
 
-// Check if we're running live tests - if so, don't intercept requests
-const isLiveTest = process.env.RUN_LIVE_TESTS === "1";
+/**
+ * Determine if we're running integration tests based on the test file path.
+ * 
+ * Integration tests (tests/integration/*) should NOT use MSW mocking:
+ * - live-api.test.ts needs real API access
+ * - cli-options.test.ts spawns subprocesses
+ * 
+ * Unit tests (tests/unit/*) should ALWAYS use MSW mocking.
+ */
+function isIntegrationTest(): boolean {
+  // Bun passes the test file as argv[1]
+  const testFile = process.argv[1] ?? "";
+  return testFile.includes("/integration/") || testFile.includes("\\integration\\");
+}
+
+const shouldUseMSW = !isIntegrationTest();
 
 beforeAll(() => {
-  if (!isLiveTest) {
+  if (shouldUseMSW) {
     // For unit tests, error on unhandled requests to catch missing mocks
     server.listen({ onUnhandledRequest: "error" });
   }
-  // For live tests, don't start MSW at all - let real requests through
+  // For integration tests, don't start MSW at all - let real requests through
 });
 
 afterEach(() => {
-  if (!isLiveTest) {
+  if (shouldUseMSW) {
     server.resetHandlers();
   }
 });
 
 afterAll(() => {
-  if (!isLiveTest) {
+  if (shouldUseMSW) {
     server.close();
   }
 });
