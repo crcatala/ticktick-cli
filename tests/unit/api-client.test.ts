@@ -297,4 +297,100 @@ describe("TickTickClient", () => {
     expect(body.update[0].reminders).toBeDefined();
     expect(body.update[0].reminders).toHaveLength(0);
   });
+
+  test("getTask fetches single task with projectId query param", async () => {
+    let capturedUrl: string | undefined;
+
+    server.use(
+      http.get(`${API_BASE}/task/:taskId`, ({ request, params }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({
+          id: params.taskId,
+          title: "Test Task",
+          projectId: "project-456",
+          items: [
+            { id: "item-1", title: "Checklist item", status: 0, sortOrder: 0 },
+          ],
+        });
+      })
+    );
+
+    const client = await createClient();
+    const task = await client.getTask("task-123", "project-456");
+
+    expect(capturedUrl).toContain("/task/task-123");
+    expect(capturedUrl).toContain("projectId=project-456");
+    expect(task.id).toBe("task-123");
+    expect(task.title).toBe("Test Task");
+    expect(task.items).toHaveLength(1);
+    expect(task.items?.[0].title).toBe("Checklist item");
+  });
+
+  test("updateTask sends items array for checklist operations", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "new-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      projectId: "project-456",
+      items: [
+        { id: "item-1", title: "First item", status: 0, sortOrder: 0 },
+        { id: "item-2", title: "Second item", status: 1, sortOrder: 100, completedTime: "2025-01-01T00:00:00.000Z" },
+      ],
+    });
+
+    const body = capturedBody as {
+      update: Array<{
+        id: string;
+        projectId: string;
+        items: Array<{ id: string; title: string; status: number; sortOrder: number; completedTime?: string }>;
+      }>;
+    };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].projectId).toBe("project-456");
+    expect(body.update[0].items).toHaveLength(2);
+    expect(body.update[0].items[0]).toEqual({
+      id: "item-1",
+      title: "First item",
+      status: 0,
+      sortOrder: 0,
+    });
+    expect(body.update[0].items[1]).toEqual({
+      id: "item-2",
+      title: "Second item",
+      status: 1,
+      sortOrder: 100,
+      completedTime: "2025-01-01T00:00:00.000Z",
+    });
+  });
+
+  test("updateTask without items does not include items field", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "new-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      title: "Updated title",
+    });
+
+    const body = capturedBody as { update: Array<{ id: string; title: string; items?: unknown }> };
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].title).toBe("Updated title");
+    expect(body.update[0].items).toBeUndefined();
+  });
 });

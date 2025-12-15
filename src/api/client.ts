@@ -71,7 +71,7 @@ interface RequestOptions {
  *
  * This format is required by the TickTick API for task/project/group IDs.
  */
-function generateObjectId(): string {
+export function generateObjectId(): string {
   // 4 bytes (8 hex chars): Unix timestamp
   const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
 
@@ -266,6 +266,16 @@ export class TickTickClient {
     const batch = await this.getBatch();
     // Tasks are already validated as part of BatchResponse
     return batch.syncTaskBean?.update ?? [];
+  }
+
+  /**
+   * Get a single task by ID.
+   * Returns full task details including checklist items.
+   */
+  async getTask(taskId: string, projectId: string): Promise<Task> {
+    const endpoint = `${ENDPOINTS.TASK}/${taskId}?projectId=${projectId}`;
+    const data = await this.request<unknown>(endpoint);
+    return validateOne(TaskSchema, data, this.validation, "Task");
   }
 
   /**

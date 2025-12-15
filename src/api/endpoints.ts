@@ -18,6 +18,7 @@ export const ENDPOINTS = {
 
   // Tasks
   BATCH_TASK: "/batch/task",
+  TASK: "/task", // GET /task/{taskId}?projectId={projectId}
   CLOSED_TASKS: "/project/all/closed",
 
   // Projects

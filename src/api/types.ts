@@ -41,10 +41,19 @@ export interface TaskCreate {
   timeZone?: string;
 }
 
+export interface ChecklistItemInput {
+  id: string;
+  title: string;
+  status: number;
+  sortOrder: number;
+  completedTime?: string;
+}
+
 export interface TaskUpdate extends Partial<TaskCreate> {
   id: string;
   status?: number;
   completedTime?: string;
+  items?: ChecklistItemInput[];
 }
 
 // Project create/update parameter types

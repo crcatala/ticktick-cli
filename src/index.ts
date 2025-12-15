@@ -12,6 +12,7 @@ import {
   createUserCommand,
   createSyncCommand,
   createTrashCommand,
+  createChecklistCommand,
 } from "./commands/index.js";
 import type { ValidationStrategy } from "./schemas/index.js";
 
@@ -58,6 +59,7 @@ program.addCommand(createTaskCommand());
 program.addCommand(createProjectCommand());
 program.addCommand(createGroupCommand());
 program.addCommand(createTagCommand());
+program.addCommand(createChecklistCommand());
 program.addCommand(createUserCommand());
 program.addCommand(createSyncCommand());
 program.addCommand(createTrashCommand());
