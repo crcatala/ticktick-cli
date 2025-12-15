@@ -85,10 +85,18 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
     await client.completeTask(task.id);
     await apiDelay();
 
-    // Verify it's in closed tasks
-    const closedTasks = await client.getClosedTasks("Completed");
-    const found = closedTasks.find(t => t.id === task.id);
-    expect(found).toBeDefined();
+    // Verify it's in closed tasks (may need a moment to propagate)
+    // Poll a few times since the API may have eventual consistency
+    let found = false;
+    for (let i = 0; i < 3; i++) {
+      const closedTasks = await client.getClosedTasks("Completed");
+      if (closedTasks.find(t => t.id === task.id)) {
+        found = true;
+        break;
+      }
+      await apiDelay(1000); // Wait longer between retries
+    }
+    expect(found).toBe(true);
 
     await apiDelay();
   });
