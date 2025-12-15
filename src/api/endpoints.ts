@@ -22,6 +22,7 @@ export const ENDPOINTS = {
 
   // Projects
   BATCH_PROJECT: "/batch/project",
+  BATCH_ORDER: "/batch/order", // Used for deleting projects
 
   // Project Groups
   BATCH_PROJECT_GROUP: "/batch/projectGroup",
