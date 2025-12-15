@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * TickTick CLI - Command-line interface for TickTick
  */

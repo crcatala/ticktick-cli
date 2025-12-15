@@ -1,0 +1,57 @@
+# Source code (we ship compiled JS in dist/)
+src/
+
+# Compiled binary (for local dev, not npm)
+dist/ticktick
+
+# Source maps (not needed for npm users)
+*.map
+
+# Tests
+tests/
+
+# Development scripts
+scripts/
+
+# Schema snapshots (dev tooling)
+schemas/
+
+# Research/agent files
+.agent-research/
+
+# Beads issue tracking
+.beads/
+
+# Git
+.git/
+.gitattributes
+.github/
+
+# Config files not needed at runtime
+tsconfig.json
+bunfig.toml
+bun.lock
+renovate.json
+
+# Documentation (README.md is included by default)
+AGENTS.md
+CLAUDE.md
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts that shouldn't be published
+*.tsbuildinfo
+coverage/
+
+# Environment
+.env
+.env.local
+.env.*.local
