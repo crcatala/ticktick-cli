@@ -348,6 +348,208 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
 });
 
 // ============================================================
+// Recurring Task Tests
+// ============================================================
+
+describeLiveWithProject("Recurring Task API", ({ getClient, getTestProject }) => {
+  it("creates a daily recurring task", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Recurring tasks require a start/due date
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    const title = generateTestName("recurring-daily");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+      repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+    expect(task.title).toBe(title);
+
+    // Verify repeat flag persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.repeatFlag).toBe("RRULE:FREQ=DAILY;INTERVAL=1");
+  });
+
+  it("creates a weekly recurring task with specific days", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    const title = generateTestName("recurring-weekly");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+      repeatFlag: "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+
+    // Verify repeat flag persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.repeatFlag).toBe("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR");
+  });
+
+  it("creates a recurring task with count limit", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    const title = generateTestName("recurring-count");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+      repeatFlag: "RRULE:FREQ=WEEKLY;INTERVAL=1;COUNT=10",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+
+    // Verify repeat flag persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.repeatFlag).toContain("COUNT=10");
+  });
+
+  it("creates a recurring task with until date", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    // End date 3 months from now
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 3);
+    const untilDate = endDate.toISOString().slice(0, 10).replace(/-/g, "");
+
+    const title = generateTestName("recurring-until");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+      repeatFlag: `RRULE:FREQ=MONTHLY;INTERVAL=1;UNTIL=${untilDate}`,
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+
+    // Verify repeat flag persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.repeatFlag).toContain("UNTIL=");
+  });
+
+  it("updates task to add repeat pattern", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create a non-recurring task first
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    const title = generateTestName("task-add-repeat");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+    });
+    testProject.trackTask(task.id);
+
+    // Update to add repeat pattern
+    await client.updateTask({
+      id: task.id,
+      repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+
+    // Verify repeat flag was added
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.repeatFlag).toBe("RRULE:FREQ=DAILY;INTERVAL=1");
+  });
+
+  it("updates task to clear repeat pattern", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create a recurring task
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 1);
+    const startDate = futureDate.toISOString();
+
+    const title = generateTestName("task-clear-repeat");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      startDate,
+      repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
+    });
+    testProject.trackTask(task.id);
+
+    // Verify it has a repeat flag
+    let tasks = await client.getTasks();
+    let found = tasks.find((t) => t.id === task.id);
+    expect(found?.repeatFlag).toBe("RRULE:FREQ=DAILY;INTERVAL=1");
+
+    // Update to clear repeat pattern
+    await client.updateTask({
+      id: task.id,
+      repeatFlag: "",
+    });
+
+    // Verify repeat flag was cleared
+    tasks = await client.getTasks();
+    found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    // repeatFlag should be empty/null/undefined after clearing
+    expect(found?.repeatFlag ?? "").toBe("");
+  });
+});
+
+// ============================================================
 // Project Management Tests
 // ============================================================
 
