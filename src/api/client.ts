@@ -426,7 +426,7 @@ export class TickTickClient {
   /**
    * Delete tasks.
    * @param taskIds - Array of task IDs to delete
-   * @param projectId - Optional project ID (required by some API versions)
+   * @param projectId - Project ID (required by API)
    */
   async deleteTasks(taskIds: string[], projectId: string): Promise<void> {
     const deletes = taskIds.map((taskId) => ({
@@ -457,6 +457,49 @@ export class TickTickClient {
   }
 
   /**
+   * Delete multiple tasks from potentially different projects in a single API call.
+   * 
+   * @param tasks - Array of { taskId, projectId } objects
+   * @returns Object with successful and failed task IDs
+   */
+  async deleteTasksBatch(tasks: Array<{ taskId: string; projectId: string }>): Promise<{
+    succeeded: string[];
+    failed: Array<{ taskId: string; error: string }>;
+  }> {
+    const deletes = tasks.map(({ taskId, projectId }) => ({
+      taskId,
+      projectId,
+    }));
+
+    const data = await this.request<unknown>(
+      ENDPOINTS.BATCH_TASK,
+      {
+        method: "POST",
+        body: { delete: deletes },
+      }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    const succeeded: string[] = [];
+    const failed: Array<{ taskId: string; error: string }> = [];
+
+    for (const { taskId } of tasks) {
+      if (response.id2error && response.id2error[taskId]) {
+        failed.push({ taskId, error: response.id2error[taskId] });
+      } else {
+        succeeded.push(taskId);
+      }
+    }
+
+    return { succeeded, failed };
+  }
+
+  /**
    * Mark a task as complete.
    * Requires status=2, completedTime, and projectId to be set.
    */
@@ -468,6 +511,53 @@ export class TickTickClient {
       status: 2,
       completedTime,
     });
+  }
+
+  /**
+   * Mark multiple tasks as complete in a single API call.
+   * More efficient than calling completeTask multiple times.
+   * 
+   * @param tasks - Array of { taskId, projectId } objects
+   * @returns Object with successful and failed task IDs
+   */
+  async completeTasks(tasks: Array<{ taskId: string; projectId: string }>): Promise<{
+    succeeded: string[];
+    failed: Array<{ taskId: string; error: string }>;
+  }> {
+    const completedTime = new Date().toISOString();
+    const updates = tasks.map(({ taskId, projectId }) => ({
+      id: taskId,
+      projectId,
+      status: 2,
+      completedTime,
+    }));
+
+    const data = await this.request<unknown>(
+      ENDPOINTS.BATCH_TASK,
+      {
+        method: "POST",
+        body: { update: updates },
+      }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    const succeeded: string[] = [];
+    const failed: Array<{ taskId: string; error: string }> = [];
+
+    for (const { taskId } of tasks) {
+      if (response.id2error && response.id2error[taskId]) {
+        failed.push({ taskId, error: response.id2error[taskId] });
+      } else {
+        succeeded.push(taskId);
+      }
+    }
+
+    return { succeeded, failed };
   }
 
   /**
@@ -485,10 +575,100 @@ export class TickTickClient {
   }
 
   /**
+   * Mark multiple tasks as abandoned in a single API call.
+   * 
+   * @param tasks - Array of { taskId, projectId } objects
+   * @returns Object with successful and failed task IDs
+   */
+  async abandonTasks(tasks: Array<{ taskId: string; projectId: string }>): Promise<{
+    succeeded: string[];
+    failed: Array<{ taskId: string; error: string }>;
+  }> {
+    const completedTime = new Date().toISOString();
+    const updates = tasks.map(({ taskId, projectId }) => ({
+      id: taskId,
+      projectId,
+      status: -1,
+      completedTime,
+    }));
+
+    const data = await this.request<unknown>(
+      ENDPOINTS.BATCH_TASK,
+      {
+        method: "POST",
+        body: { update: updates },
+      }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    const succeeded: string[] = [];
+    const failed: Array<{ taskId: string; error: string }> = [];
+
+    for (const { taskId } of tasks) {
+      if (response.id2error && response.id2error[taskId]) {
+        failed.push({ taskId, error: response.id2error[taskId] });
+      } else {
+        succeeded.push(taskId);
+      }
+    }
+
+    return { succeeded, failed };
+  }
+
+  /**
    * Reopen a closed task.
    */
   async reopenTask(taskId: string, projectId: string): Promise<void> {
     await this.updateTask({ id: taskId, projectId, status: 0 });
+  }
+
+  /**
+   * Reopen multiple closed tasks in a single API call.
+   * 
+   * @param tasks - Array of { taskId, projectId } objects
+   * @returns Object with successful and failed task IDs
+   */
+  async reopenTasks(tasks: Array<{ taskId: string; projectId: string }>): Promise<{
+    succeeded: string[];
+    failed: Array<{ taskId: string; error: string }>;
+  }> {
+    const updates = tasks.map(({ taskId, projectId }) => ({
+      id: taskId,
+      projectId,
+      status: 0,
+    }));
+
+    const data = await this.request<unknown>(
+      ENDPOINTS.BATCH_TASK,
+      {
+        method: "POST",
+        body: { update: updates },
+      }
+    );
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    const succeeded: string[] = [];
+    const failed: Array<{ taskId: string; error: string }> = [];
+
+    for (const { taskId } of tasks) {
+      if (response.id2error && response.id2error[taskId]) {
+        failed.push({ taskId, error: response.id2error[taskId] });
+      } else {
+        succeeded.push(taskId);
+      }
+    }
+
+    return { succeeded, failed };
   }
 
   /**

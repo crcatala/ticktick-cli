@@ -426,110 +426,364 @@ export function createTaskCommand(): Command {
 
   // done command
   task
-    .command("done <id>")
-    .description("Mark a task as complete")
+    .command("done <ids...>")
+    .description("Mark one or more tasks as complete")
+    .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
-      handleError(async function (this: Command, id: string) {
+      handleError(async function (this: Command, ids: string[], options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
-        // Find the task first
-        const tasks = await client.getTasks();
-        const foundTask = findTaskById(tasks, id);
+        // Find all tasks first
+        const allTasks = await client.getTasks();
+        const tasksToComplete: Array<{ task: Task; taskId: string; projectId: string }> = [];
+        const notFound: string[] = [];
 
-        if (!foundTask) {
-          printError(`Task not found: ${id}`);
+        for (const id of ids) {
+          const foundTask = findTaskById(allTasks, id);
+          if (!foundTask) {
+            notFound.push(id);
+          } else if (!foundTask.projectId) {
+            printError(`Task has no projectId: ${id}`);
+            process.exit(1);
+          } else {
+            tasksToComplete.push({
+              task: foundTask,
+              taskId: foundTask.id,
+              projectId: foundTask.projectId,
+            });
+          }
+        }
+
+        if (notFound.length > 0) {
+          printError(`Task(s) not found: ${notFound.join(", ")}`);
           process.exit(1);
         }
 
-        if (!foundTask.projectId) {
-          printError(`Task has no projectId: ${id}`);
+        // For single task, no confirmation needed
+        if (tasksToComplete.length === 1) {
+          const { task, taskId, projectId } = tasksToComplete[0];
+          await client.completeTask(taskId, projectId);
+          printSuccess(`Completed: ${task.title}`);
+          return;
+        }
+
+        // For multiple tasks, show confirmation unless --yes
+        if (!options.yes) {
+          printInfo(`Tasks to complete (${tasksToComplete.length}):`);
+          for (const { task } of tasksToComplete) {
+            console.log(`  - ${task.title}`);
+          }
+          
+          const readline = await import("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          const confirmed = await new Promise<boolean>((resolve) => {
+            rl.question(`Complete ${tasksToComplete.length} tasks? (y/N) `, (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
+            });
+          });
+
+          if (!confirmed) {
+            console.log("Aborted.");
+            return;
+          }
+        }
+
+        // Batch complete
+        const result = await client.completeTasks(
+          tasksToComplete.map(({ taskId, projectId }) => ({ taskId, projectId }))
+        );
+
+        if (result.succeeded.length > 0) {
+          printSuccess(`Completed ${result.succeeded.length} task(s)`);
+        }
+        if (result.failed.length > 0) {
+          printError(`Failed to complete ${result.failed.length} task(s):`);
+          for (const { taskId, error } of result.failed) {
+            const task = tasksToComplete.find(t => t.taskId === taskId)?.task;
+            console.log(`  - ${task?.title ?? taskId}: ${error}`);
+          }
           process.exit(1);
         }
-        await client.completeTask(foundTask.id, foundTask.projectId);
-        printSuccess(`Completed: ${foundTask.title}`);
       })
     );
 
   // abandon command
   task
-    .command("abandon <id>")
-    .description("Mark a task as abandoned")
+    .command("abandon <ids...>")
+    .description("Mark one or more tasks as abandoned")
+    .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
-      handleError(async function (this: Command, id: string) {
+      handleError(async function (this: Command, ids: string[], options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
-        // Find the task first
-        const tasks = await client.getTasks();
-        const foundTask = findTaskById(tasks, id);
+        // Find all tasks first
+        const allTasks = await client.getTasks();
+        const tasksToAbandon: Array<{ task: Task; taskId: string; projectId: string }> = [];
+        const notFound: string[] = [];
 
-        if (!foundTask) {
-          printError(`Task not found: ${id}`);
+        for (const id of ids) {
+          const foundTask = findTaskById(allTasks, id);
+          if (!foundTask) {
+            notFound.push(id);
+          } else if (!foundTask.projectId) {
+            printError(`Task has no projectId: ${id}`);
+            process.exit(1);
+          } else {
+            tasksToAbandon.push({
+              task: foundTask,
+              taskId: foundTask.id,
+              projectId: foundTask.projectId,
+            });
+          }
+        }
+
+        if (notFound.length > 0) {
+          printError(`Task(s) not found: ${notFound.join(", ")}`);
           process.exit(1);
         }
 
-        if (!foundTask.projectId) {
-          printError(`Task has no projectId: ${id}`);
+        // For single task, no confirmation needed
+        if (tasksToAbandon.length === 1) {
+          const { task, taskId, projectId } = tasksToAbandon[0];
+          await client.abandonTask(taskId, projectId);
+          printSuccess(`Abandoned: ${task.title}`);
+          return;
+        }
+
+        // For multiple tasks, show confirmation unless --yes
+        if (!options.yes) {
+          printInfo(`Tasks to abandon (${tasksToAbandon.length}):`);
+          for (const { task } of tasksToAbandon) {
+            console.log(`  - ${task.title}`);
+          }
+          
+          const readline = await import("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          const confirmed = await new Promise<boolean>((resolve) => {
+            rl.question(`Abandon ${tasksToAbandon.length} tasks? (y/N) `, (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
+            });
+          });
+
+          if (!confirmed) {
+            console.log("Aborted.");
+            return;
+          }
+        }
+
+        // Batch abandon
+        const result = await client.abandonTasks(
+          tasksToAbandon.map(({ taskId, projectId }) => ({ taskId, projectId }))
+        );
+
+        if (result.succeeded.length > 0) {
+          printSuccess(`Abandoned ${result.succeeded.length} task(s)`);
+        }
+        if (result.failed.length > 0) {
+          printError(`Failed to abandon ${result.failed.length} task(s):`);
+          for (const { taskId, error } of result.failed) {
+            const task = tasksToAbandon.find(t => t.taskId === taskId)?.task;
+            console.log(`  - ${task?.title ?? taskId}: ${error}`);
+          }
           process.exit(1);
         }
-        await client.abandonTask(foundTask.id, foundTask.projectId);
-        printSuccess(`Abandoned: ${foundTask.title}`);
       })
     );
 
   // reopen command
   task
-    .command("reopen <id>")
-    .description("Reopen a closed task")
+    .command("reopen <ids...>")
+    .description("Reopen one or more closed tasks")
+    .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
-      handleError(async function (this: Command, id: string) {
+      handleError(async function (this: Command, ids: string[], options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
-        // Check closed tasks
-        const closedTasks = await client.getClosedTasks();
-        const foundTask = findTaskById(closedTasks, id);
+        // Check closed tasks (both completed and abandoned)
+        const [completedTasks, abandonedTasks] = await Promise.all([
+          client.getClosedTasks("Completed"),
+          client.getClosedTasks("Abandoned"),
+        ]);
+        const closedTasks = [...completedTasks, ...abandonedTasks];
+        
+        const tasksToReopen: Array<{ task: Task; taskId: string; projectId: string }> = [];
+        const notFound: string[] = [];
 
-        if (!foundTask) {
-          printError(`Closed task not found: ${id}`);
+        for (const id of ids) {
+          const foundTask = findTaskById(closedTasks, id);
+          if (!foundTask) {
+            notFound.push(id);
+          } else if (!foundTask.projectId) {
+            printError(`Task has no projectId: ${id}`);
+            process.exit(1);
+          } else {
+            tasksToReopen.push({
+              task: foundTask,
+              taskId: foundTask.id,
+              projectId: foundTask.projectId,
+            });
+          }
+        }
+
+        if (notFound.length > 0) {
+          printError(`Closed task(s) not found: ${notFound.join(", ")}`);
           process.exit(1);
         }
 
-        if (!foundTask.projectId) {
-          printError(`Task has no projectId: ${id}`);
+        // For single task, no confirmation needed
+        if (tasksToReopen.length === 1) {
+          const { task, taskId, projectId } = tasksToReopen[0];
+          await client.reopenTask(taskId, projectId);
+          printSuccess(`Reopened: ${task.title}`);
+          return;
+        }
+
+        // For multiple tasks, show confirmation unless --yes
+        if (!options.yes) {
+          printInfo(`Tasks to reopen (${tasksToReopen.length}):`);
+          for (const { task } of tasksToReopen) {
+            console.log(`  - ${task.title}`);
+          }
+          
+          const readline = await import("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          const confirmed = await new Promise<boolean>((resolve) => {
+            rl.question(`Reopen ${tasksToReopen.length} tasks? (y/N) `, (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
+            });
+          });
+
+          if (!confirmed) {
+            console.log("Aborted.");
+            return;
+          }
+        }
+
+        // Batch reopen
+        const result = await client.reopenTasks(
+          tasksToReopen.map(({ taskId, projectId }) => ({ taskId, projectId }))
+        );
+
+        if (result.succeeded.length > 0) {
+          printSuccess(`Reopened ${result.succeeded.length} task(s)`);
+        }
+        if (result.failed.length > 0) {
+          printError(`Failed to reopen ${result.failed.length} task(s):`);
+          for (const { taskId, error } of result.failed) {
+            const task = tasksToReopen.find(t => t.taskId === taskId)?.task;
+            console.log(`  - ${task?.title ?? taskId}: ${error}`);
+          }
           process.exit(1);
         }
-        await client.reopenTask(foundTask.id, foundTask.projectId);
-        printSuccess(`Reopened: ${foundTask.title}`);
       })
     );
 
   // delete command
   task
-    .command("delete <id>")
-    .description("Delete a task")
-    .option("-f, --force", "Skip confirmation")
+    .command("delete <ids...>")
+    .description("Delete one or more tasks")
+    .option("-f, --force", "Skip confirmation (alias for --yes)")
+    .option("-y, --yes", "Skip confirmation")
     .action(
-      handleError(async function (this: Command, id: string, options) {
+      handleError(async function (this: Command, ids: string[], options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
-        // Find the task first
-        const tasks = await client.getTasks();
-        const foundTask = findTaskById(tasks, id);
+        // Find all tasks first
+        const allTasks = await client.getTasks();
+        const tasksToDelete: Array<{ task: Task; taskId: string; projectId: string }> = [];
+        const notFound: string[] = [];
 
-        if (!foundTask) {
-          printError(`Task not found: ${id}`);
+        for (const id of ids) {
+          const foundTask = findTaskById(allTasks, id);
+          if (!foundTask) {
+            notFound.push(id);
+          } else if (!foundTask.projectId) {
+            printError(`Task has no projectId: ${id}`);
+            process.exit(1);
+          } else {
+            tasksToDelete.push({
+              task: foundTask,
+              taskId: foundTask.id,
+              projectId: foundTask.projectId,
+            });
+          }
+        }
+
+        if (notFound.length > 0) {
+          printError(`Task(s) not found: ${notFound.join(", ")}`);
           process.exit(1);
         }
 
-        if (!foundTask.projectId) {
-          printError(`Task has no projectId, cannot delete`);
+        // Always require confirmation for delete unless --yes or --force
+        const skipConfirm = options.yes || options.force;
+        if (!skipConfirm) {
+          printInfo(`Tasks to delete (${tasksToDelete.length}):`);
+          for (const { task } of tasksToDelete) {
+            console.log(`  - ${task.title}`);
+          }
+          
+          const readline = await import("readline");
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          const confirmed = await new Promise<boolean>((resolve) => {
+            rl.question(`⚠️  Delete ${tasksToDelete.length} task(s)? This cannot be undone. (y/N) `, (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
+            });
+          });
+
+          if (!confirmed) {
+            console.log("Aborted.");
+            return;
+          }
+        }
+
+        // For single task with same project, use existing method
+        if (tasksToDelete.length === 1) {
+          const { task, taskId, projectId } = tasksToDelete[0];
+          await client.deleteTasks([taskId], projectId);
+          printSuccess(`Deleted: ${task.title}`);
+          return;
+        }
+
+        // Batch delete (handles tasks from different projects)
+        const result = await client.deleteTasksBatch(
+          tasksToDelete.map(({ taskId, projectId }) => ({ taskId, projectId }))
+        );
+
+        if (result.succeeded.length > 0) {
+          printSuccess(`Deleted ${result.succeeded.length} task(s)`);
+        }
+        if (result.failed.length > 0) {
+          printError(`Failed to delete ${result.failed.length} task(s):`);
+          for (const { taskId, error } of result.failed) {
+            const task = tasksToDelete.find(t => t.taskId === taskId)?.task;
+            console.log(`  - ${task?.title ?? taskId}: ${error}`);
+          }
           process.exit(1);
         }
-        await client.deleteTasks([foundTask.id], foundTask.projectId);
-        printSuccess(`Deleted: ${foundTask.title}`);
       })
     );
 
