@@ -10,6 +10,7 @@ import {
   printJson,
   printKeyValue,
   printProjectsTable,
+  printProjectsByFolder,
   truncateId,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
@@ -23,18 +24,22 @@ export function createProjectCommand(): Command {
     .command("list")
     .description("List all projects")
     .option("--json", "Output as JSON")
+    .option("--by-folder", "Group projects by folder")
     .action(
       handleError(async function (this: Command, options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
         const projects = await client.getProjects();
+        const groups = await client.getProjectGroups();
 
         if (options.json) {
           printJson(projects);
         } else if (projects.length === 0) {
           printInfo("No projects found");
+        } else if (options.byFolder) {
+          printProjectsByFolder(projects, groups);
         } else {
-          printProjectsTable(projects);
+          printProjectsTable(projects, groups);
         }
       })
     );
@@ -61,6 +66,13 @@ export function createProjectCommand(): Command {
         if (options.json) {
           printJson(foundProject);
         } else {
+          // Get folder name if available
+          const groups = await client.getProjectGroups();
+          const folder = foundProject.groupId 
+            ? groups.find(g => g.id === foundProject.groupId)
+            : null;
+          const folderDisplay = folder?.name ?? truncateId(foundProject.groupId);
+
           printKeyValue(
             {
               ID: foundProject.id ?? "-",
@@ -68,10 +80,10 @@ export function createProjectCommand(): Command {
               Kind: foundProject.kind ?? "TASK",
               Color: foundProject.color ?? "-",
               "View Mode": foundProject.viewMode ?? "-",
-              Group: truncateId(foundProject.groupId),
+              Folder: folderDisplay,
               Closed: foundProject.closed ? "Yes" : "No",
             },
-            ["ID", "Name", "Kind", "Color", "View Mode", "Group", "Closed"]
+            ["ID", "Name", "Kind", "Color", "View Mode", "Folder", "Closed"]
           );
         }
       })
@@ -107,7 +119,8 @@ export function createProjectCommand(): Command {
     .description("Create a new project")
     .option("-c, --color <hex>", "Project color (hex code)")
     .option("-k, --kind <kind>", "Project kind (TASK, NOTE)", "TASK")
-    .option("-g, --group <id>", "Project group ID")
+    .option("-f, --folder <id>", "Folder ID to add project to")
+    .option("-g, --group <id>", "Folder ID (alias for --folder)")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, name: string, options) {
@@ -122,8 +135,9 @@ export function createProjectCommand(): Command {
         if (options.kind) {
           projectData.kind = options.kind;
         }
-        if (options.group) {
-          projectData.groupId = options.group;
+        // Support both --folder and --group (folder takes precedence)
+        if (options.folder || options.group) {
+          projectData.groupId = options.folder || options.group;
         }
 
         const project = await client.createProject(projectData);
@@ -143,7 +157,10 @@ export function createProjectCommand(): Command {
     .description("Edit an existing project")
     .option("-n, --name <name>", "New name")
     .option("-c, --color <hex>", "New color (hex code)")
-    .option("-g, --group <id>", "New group ID")
+    .option("-f, --folder <id>", "Move project to folder")
+    .option("-g, --group <id>", "Move project to folder (alias for --folder)")
+    .option("--clear-folder", "Remove project from its folder")
+    .option("--clear-group", "Remove project from its folder (alias for --clear-folder)")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -161,6 +178,16 @@ export function createProjectCommand(): Command {
           process.exit(1);
         }
 
+        // Support both --folder and --group (folder takes precedence)
+        const newFolder = options.folder || options.group;
+        const clearFolder = options.clearFolder || options.clearGroup;
+
+        // Validate: can't use both set and clear
+        if (newFolder && clearFolder) {
+          printError("Cannot use both --folder/--group and --clear-folder/--clear-group");
+          process.exit(1);
+        }
+
         const updateData: Parameters<typeof client.updateProject>[0] = {
           id: foundProject.id,
         };
@@ -171,8 +198,12 @@ export function createProjectCommand(): Command {
         if (options.color) {
           updateData.color = options.color;
         }
-        if (options.group) {
-          updateData.groupId = options.group;
+        if (newFolder) {
+          updateData.groupId = newFolder;
+        }
+        if (clearFolder) {
+          // Set to empty string or null to clear the group
+          updateData.groupId = "";
         }
 
         const project = await client.updateProject(updateData);

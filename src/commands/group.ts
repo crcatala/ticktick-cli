@@ -1,5 +1,8 @@
 /**
- * Project group commands.
+ * Project group (folder) commands.
+ * 
+ * In TickTick's API, "project groups" are what users see as "folders" in the UI.
+ * This module provides both `group` and `folder` command aliases.
  */
 import { Command } from "commander";
 import { getClient } from "../api/client.js";
@@ -10,12 +13,20 @@ import {
   printJson,
   printKeyValue,
   printGroupsTable,
+  printProjectsTableSimple,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";
 
-export function createGroupCommand(): Command {
-  const group = new Command("group").description("Manage project groups");
+/**
+ * Build the group/folder command with all subcommands.
+ * @param commandName - "group" or "folder"
+ */
+function buildGroupCommand(commandName: string): Command {
+  const description = commandName === "folder" 
+    ? "Manage folders (project groups)" 
+    : "Manage project groups (folders)";
+  const group = new Command(commandName).description(description);
 
   // list command
   group
@@ -126,5 +137,73 @@ export function createGroupCommand(): Command {
       })
     );
 
+  // show command - display folder details and its projects
+  group
+    .command("show <id>")
+    .description("Show folder details and its projects")
+    .option("--json", "Output as JSON")
+    .action(
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
+
+        // Find the group
+        const groups = await client.getProjectGroups();
+        const foundGroup = groups.find(
+          (g) => g.id === id || g.id?.startsWith(id)
+        );
+
+        if (!foundGroup) {
+          printError(`Folder not found: ${id}`);
+          process.exit(1);
+        }
+
+        // Get projects in this folder
+        const allProjects = await client.getProjects();
+        const folderProjects = allProjects.filter(
+          (p) => p.groupId === foundGroup.id
+        );
+
+        if (options.json) {
+          printJson({
+            folder: foundGroup,
+            projects: folderProjects,
+          });
+        } else {
+          printKeyValue(
+            {
+              ID: foundGroup.id ?? "-",
+              Name: foundGroup.name ?? "-",
+              "Project Count": String(folderProjects.length),
+            },
+            ["ID", "Name", "Project Count"]
+          );
+
+          if (folderProjects.length > 0) {
+            console.log();
+            printInfo("Projects in this folder:");
+            printProjectsTableSimple(folderProjects);
+          } else {
+            console.log();
+            printInfo("No projects in this folder");
+          }
+        }
+      })
+    );
+
   return group;
+}
+
+/**
+ * Create the "group" command.
+ */
+export function createGroupCommand(): Command {
+  return buildGroupCommand("group");
+}
+
+/**
+ * Create the "folder" command (alias for group).
+ */
+export function createFolderCommand(): Command {
+  return buildGroupCommand("folder");
 }

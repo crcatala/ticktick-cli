@@ -8,6 +8,7 @@ import {
   createTaskCommand,
   createProjectCommand,
   createGroupCommand,
+  createFolderCommand,
   createTagCommand,
   createUserCommand,
   createSyncCommand,
@@ -58,6 +59,7 @@ program.addCommand(createAuthCommand());
 program.addCommand(createTaskCommand());
 program.addCommand(createProjectCommand());
 program.addCommand(createGroupCommand());
+program.addCommand(createFolderCommand());
 program.addCommand(createTagCommand());
 program.addCommand(createChecklistCommand());
 program.addCommand(createUserCommand());
