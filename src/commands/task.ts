@@ -169,7 +169,7 @@ export function createTaskCommand(): Command {
       arr.push(val);
       return arr;
     }, [])
-    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - can be used multiple times", (val, arr: string[]) => {
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - requires --due date - can be used multiple times", (val, arr: string[]) => {
       arr.push(val);
       return arr;
     }, [])
@@ -204,6 +204,14 @@ export function createTaskCommand(): Command {
           taskData.tags = options.tag;
         }
         if (options.reminder && options.reminder.length > 0) {
+          // Reminders require a reference time (due date or start date)
+          if (!options.due) {
+            printError("Reminders require a due date");
+            printInfo("Use --due to set a due date for this task");
+            printInfo("Example: tt task add 'Meeting prep' --due tomorrow --reminder 1h");
+            process.exit(1);
+          }
+
           const reminders = [];
           for (const timeStr of options.reminder) {
             const reminder = createReminder(timeStr);
@@ -247,7 +255,7 @@ export function createTaskCommand(): Command {
     .option("-p, --project <id>", "New project ID")
     .option("--priority <level>", "New priority (high, medium, low, none)")
     .option("-d, --due <date>", "New due date (YYYY-MM-DD, today, tomorrow, +3d)")
-    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - can be used multiple times", (val, arr: string[]) => {
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - requires --due date - can be used multiple times", (val, arr: string[]) => {
       arr.push(val);
       return arr;
     }, [])
@@ -296,6 +304,16 @@ export function createTaskCommand(): Command {
         if (options.clearReminders) {
           updateData.reminders = [];
         } else if (options.reminder && options.reminder.length > 0) {
+          // Reminders require a reference time (due date or start date)
+          // Check if task already has a due date OR if they're setting one now
+          const willHaveDueDate = options.due || foundTask.dueDate || foundTask.startDate;
+          if (!willHaveDueDate) {
+            printError("Reminders require a due date");
+            printInfo("This task has no due date. Use --due to set one");
+            printInfo("Example: tt task edit <id> --due tomorrow --reminder 1h");
+            process.exit(1);
+          }
+
           const reminders = [];
           for (const timeStr of options.reminder) {
             const reminder = createReminder(timeStr);
