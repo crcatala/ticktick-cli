@@ -23,6 +23,7 @@ const SCHEMA_VERSION = "1.0.0";
 
 // Track number of snapshots saved
 let snapshotCount = 0;
+let failedEndpoints: string[] = [];
 
 /**
  * Infer JSON Schema from a value.
@@ -100,6 +101,31 @@ async function saveSnapshot(
 }
 
 /**
+ * Capture a single endpoint with error handling.
+ * Returns true if successful, false if failed.
+ */
+async function captureEndpoint(
+  name: string,
+  endpoint: string,
+  method: string,
+  fetchFn: () => Promise<unknown>,
+  filename: string
+): Promise<boolean> {
+  try {
+    console.log(`  Fetching ${name}...`);
+    const data = await fetchFn();
+    await saveSnapshot(filename, createSchemaSnapshot(endpoint, method, data));
+    await apiDelay();
+    return true;
+  } catch (error) {
+    console.log(`✗ Failed to capture ${name}: ${error instanceof Error ? error.message : String(error)}`);
+    failedEndpoints.push(`${method} ${endpoint} (${name})`);
+    await apiDelay(); // Still delay to avoid rate limiting on subsequent calls
+    return false;
+  }
+}
+
+/**
  * Main capture function.
  */
 async function captureSchemas(): Promise<void> {
@@ -123,54 +149,49 @@ async function captureSchemas(): Promise<void> {
     console.log("Capturing read endpoints...");
 
     // GET /batch/check/0
-    console.log("  Fetching batch data...");
-    const batchData = await client.getBatch();
-    await saveSnapshot("batch-check.schema.json", createSchemaSnapshot(
+    await captureEndpoint(
+      "batch data",
       "/api/v2/batch/check/0",
       "GET",
-      batchData
-    ));
-    await apiDelay();
+      () => client.getBatch(),
+      "batch-check.schema.json"
+    );
 
     // GET /user/profile
-    console.log("  Fetching user profile...");
-    const profileData = await client.getProfile();
-    await saveSnapshot("user-profile.schema.json", createSchemaSnapshot(
+    await captureEndpoint(
+      "user profile",
       "/api/v2/user/profile",
       "GET",
-      profileData
-    ));
-    await apiDelay();
+      () => client.getProfile(),
+      "user-profile.schema.json"
+    );
 
     // GET /user/status
-    console.log("  Fetching user status...");
-    const statusData = await client.getUserStatus();
-    await saveSnapshot("user-status.schema.json", createSchemaSnapshot(
+    await captureEndpoint(
+      "user status",
       "/api/v2/user/status",
       "GET",
-      statusData
-    ));
-    await apiDelay();
+      () => client.getUserStatus(),
+      "user-status.schema.json"
+    );
 
     // GET /user/statistics
-    console.log("  Fetching user stats...");
-    const statsData = await client.getUserStats();
-    await saveSnapshot("user-stats.schema.json", createSchemaSnapshot(
+    await captureEndpoint(
+      "user stats",
       "/api/v2/user/statistics",
       "GET",
-      statsData
-    ));
-    await apiDelay();
+      () => client.getUserStats(),
+      "user-stats.schema.json"
+    );
 
     // GET /project/all/closed (completed tasks)
-    console.log("  Fetching closed tasks...");
-    const closedTasks = await client.getClosedTasks("Completed");
-    await saveSnapshot("closed-tasks.schema.json", createSchemaSnapshot(
+    await captureEndpoint(
+      "closed tasks",
       "/api/v2/project/all/closed",
       "GET",
-      closedTasks
-    ));
-    await apiDelay();
+      () => client.getClosedTasks("Completed"),
+      "closed-tasks.schema.json"
+    );
 
     // ============================================================
     // Mutation endpoints (require test resources)
@@ -262,6 +283,13 @@ async function captureSchemas(): Promise<void> {
 
     console.log("\n✓ Schema capture complete!");
     console.log(`  Saved ${snapshotCount} schema snapshots to ${SNAPSHOTS_DIR}/`);
+
+    if (failedEndpoints.length > 0) {
+      console.log(`\n⚠ Warning: ${failedEndpoints.length} endpoint(s) failed:`);
+      for (const endpoint of failedEndpoints) {
+        console.log(`  - ${endpoint}`);
+      }
+    }
 
   } catch (error) {
     console.error("\n✗ Error during schema capture:", error);
