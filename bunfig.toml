@@ -1,2 +1,2 @@
 [test]
-preload = ["./tests/setup/msw.ts"]
+# No preload - MSW is imported directly by unit tests that need it
