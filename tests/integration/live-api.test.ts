@@ -74,26 +74,40 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
 
     // Create a task
     const title = generateTestName("task");
+    console.log(`[DEBUG] Creating task with title: ${title}`);
+    console.log(`[DEBUG] Project ID: ${testProject.getProjectId()}`);
+    
     const task = await client.createTask({
       title,
       projectId: testProject.getProjectId(),
     });
+    console.log(`[DEBUG] Created task with ID: ${task.id}`);
     testProject.trackTask(task.id);
     await apiDelay();
 
     // Complete it
+    console.log(`[DEBUG] Completing task ${task.id}...`);
     await client.completeTask(task.id);
+    console.log(`[DEBUG] Complete request sent`);
     await apiDelay();
 
     // Verify it's in closed tasks (may need a moment to propagate)
     // Poll a few times since the API may have eventual consistency
     let found = false;
     for (let i = 0; i < 3; i++) {
+      console.log(`[DEBUG] Fetching closed tasks (attempt ${i + 1})...`);
       const closedTasks = await client.getClosedTasks("Completed");
-      if (closedTasks.find(t => t.id === task.id)) {
+      console.log(`[DEBUG] Got ${closedTasks.length} closed tasks`);
+      console.log(`[DEBUG] Closed task IDs: ${closedTasks.slice(0, 10).map(t => t.id).join(", ")}${closedTasks.length > 10 ? "..." : ""}`);
+      console.log(`[DEBUG] Looking for task ID: ${task.id}`);
+      
+      const matchingTask = closedTasks.find(t => t.id === task.id);
+      if (matchingTask) {
+        console.log(`[DEBUG] Found matching task!`);
         found = true;
         break;
       }
+      console.log(`[DEBUG] Task not found in closed tasks, waiting...`);
       await apiDelay(1000); // Wait longer between retries
     }
     expect(found).toBe(true);
