@@ -235,6 +235,18 @@ bun test
 bun run build
 ```
 
+### Dependency Management
+
+This project uses [Renovate](https://github.com/renovatebot/renovate) for automated dependency updates. Renovate runs weekly (Monday mornings) and creates pull requests for outdated dependencies.
+
+**Configuration highlights:**
+- Minor and patch updates for stable packages (non-0.x) are auto-merged after CI passes
+- TypeScript and Bun updates are grouped together
+- All PRs are labeled with `dependencies` and assigned to `@crcatala`
+- A Dependency Dashboard issue tracks all pending updates
+
+**Configuration:** See `renovate.json` in the repository root.
+
 ## License
 
 MIT
