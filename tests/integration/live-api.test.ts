@@ -252,7 +252,13 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     testProject.trackTask(task.id);
 
     // Update to add reminders (include startDate to ensure it's preserved)
-    await client.updateTask({
+    console.log("DEBUG: Updating task with:", {
+      id: task.id,
+      startDate,
+      reminders: [{ id: "694044a2725bb97301a131e4", trigger: "TRIGGER:-PT30M" }],
+    });
+
+    const updateResult = await client.updateTask({
       id: task.id,
       startDate, // Keep the startDate
       reminders: [
@@ -263,6 +269,8 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
       ],
     });
 
+    console.log("DEBUG: Update result:", updateResult);
+
     // Verify reminders were added (with retry for eventual consistency)
     let found;
     let attempts = 0;
@@ -271,6 +279,14 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
     while (attempts < maxAttempts) {
       const tasks = await client.getTasks();
       found = tasks.find((t) => t.id === task.id);
+
+      console.log(`DEBUG: Attempt ${attempts + 1}, found task:`, {
+        id: found?.id,
+        startDate: found?.startDate,
+        dueDate: found?.dueDate,
+        reminders: found?.reminders,
+        reminderCount: found?.reminders?.length ?? 0,
+      });
 
       if (found?.reminders && found.reminders.length > 0) {
         break;
