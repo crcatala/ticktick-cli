@@ -43,6 +43,7 @@ export interface TaskCreate {
 export interface TaskUpdate extends Partial<TaskCreate> {
   id: string;
   status?: number;
+  completedTime?: string;
 }
 
 // Project create/update parameter types

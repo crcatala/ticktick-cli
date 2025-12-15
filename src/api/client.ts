@@ -382,16 +382,28 @@ export class TickTickClient {
 
   /**
    * Mark a task as complete.
+   * Requires both status=2 and completedTime to be set.
    */
   async completeTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: 2 });
+    const completedTime = new Date().toISOString();
+    await this.updateTask({ 
+      id: taskId, 
+      status: 2,
+      completedTime,
+    });
   }
 
   /**
    * Mark a task as abandoned.
+   * Requires both status=-1 and completedTime to be set.
    */
   async abandonTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: -1 });
+    const completedTime = new Date().toISOString();
+    await this.updateTask({ 
+      id: taskId, 
+      status: -1,
+      completedTime,
+    });
   }
 
   /**
