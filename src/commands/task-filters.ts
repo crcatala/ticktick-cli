@@ -62,7 +62,7 @@ export function findTaskById(tasks: Task[], idOrPrefix: string): Task | undefine
  * Case-insensitive by default.
  *
  * @param tasks - Array of tasks to search
- * @param query - Search query string
+ * @param query - Search query string (empty/whitespace-only returns all tasks)
  * @param caseSensitive - Whether to perform case-sensitive search (default: false)
  * @returns Tasks that match the search query
  */
@@ -71,7 +71,13 @@ export function filterBySearch(
   query: string,
   caseSensitive = false
 ): Task[] {
-  const searchQuery = caseSensitive ? query : query.toLowerCase();
+  // Empty or whitespace-only query returns all tasks (no filtering)
+  const trimmedQuery = query.trim();
+  if (trimmedQuery === "") {
+    return tasks;
+  }
+  
+  const searchQuery = caseSensitive ? trimmedQuery : trimmedQuery.toLowerCase();
   
   return tasks.filter((task) => {
     // Helper to check if a string contains the query

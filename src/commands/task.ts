@@ -47,8 +47,25 @@ export function createTaskCommand(): Command {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
         
-        // Determine which tasks to fetch based on status
+        // Validate status option early
         const status = options.status?.toLowerCase() ?? "active";
+        if (!["active", "completed", "abandoned", "all"].includes(status)) {
+          printError(`Invalid status: ${status}. Use: active, completed, abandoned, or all`);
+          process.exit(1);
+        }
+
+        // Resolve project filter first (fail fast before fetching tasks)
+        let resolvedProjectId: string | undefined;
+        if (options.project) {
+          const projects = await client.getProjects();
+          resolvedProjectId = resolveProjectId(projects, options.project);
+          if (!resolvedProjectId) {
+            printError(`Project not found: ${options.project}`);
+            process.exit(1);
+          }
+        }
+        
+        // Fetch tasks based on status
         let tasks: Task[] = [];
         
         if (status === "active") {
@@ -58,32 +75,23 @@ export function createTaskCommand(): Command {
         } else if (status === "abandoned") {
           tasks = await client.getClosedTasks("Abandoned");
         } else if (status === "all") {
-          // Fetch both active and closed tasks
+          // Fetch both active and closed tasks in parallel
           const [activeTasks, completedTasks, abandonedTasks] = await Promise.all([
             client.getTasks(),
             client.getClosedTasks("Completed"),
             client.getClosedTasks("Abandoned"),
           ]);
           tasks = [...activeTasks, ...completedTasks, ...abandonedTasks];
-        } else {
-          printError(`Invalid status: ${status}. Use: active, completed, abandoned, or all`);
-          process.exit(1);
         }
 
-        // Apply search filter first (before other filters)
+        // Apply search filter
         if (options.search) {
           tasks = filterBySearch(tasks, options.search, options.caseSensitive);
         }
 
-        // Apply project filter (resolve name to ID if needed)
-        if (options.project) {
-          const projects = await client.getProjects();
-          const projectId = resolveProjectId(projects, options.project);
-          if (!projectId) {
-            printError(`Project not found: ${options.project}`);
-            process.exit(1);
-          }
-          tasks = filterByProject(tasks, projectId);
+        // Apply project filter
+        if (resolvedProjectId) {
+          tasks = filterByProject(tasks, resolvedProjectId);
         }
         
         // Apply tag filter

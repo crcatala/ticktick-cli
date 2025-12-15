@@ -173,17 +173,16 @@ describe("filterBySearch", () => {
     expect(filterBySearch(tasks, "roadmap")).toHaveLength(1);
   });
 
-  it("handles empty search query", () => {
+  it("returns all tasks for empty search query (no filtering)", () => {
     const tasks = [
       createTask({ id: "1", title: "Task one" }),
       createTask({ id: "2", title: "Task two" }),
     ];
 
-    // Empty string matches nothing (substring match of empty string)
-    const results = filterBySearch(tasks, "");
-
-    // Note: "".includes("") returns true, so all tasks match
-    expect(results).toHaveLength(2);
+    // Empty query means "no search filter" - returns all tasks
+    expect(filterBySearch(tasks, "")).toHaveLength(2);
+    expect(filterBySearch(tasks, "   ")).toHaveLength(2);
+    expect(filterBySearch(tasks, "\t\n")).toHaveLength(2);
   });
 
   it("handles special regex characters in search", () => {
