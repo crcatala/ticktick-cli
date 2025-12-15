@@ -427,12 +427,13 @@ export class TickTickClient {
 
   /**
    * Mark a task as complete.
-   * Requires both status=2 and completedTime to be set.
+   * Requires status=2, completedTime, and projectId to be set.
    */
-  async completeTask(taskId: string): Promise<void> {
+  async completeTask(taskId: string, projectId: string): Promise<void> {
     const completedTime = new Date().toISOString();
     await this.updateTask({ 
       id: taskId, 
+      projectId,
       status: 2,
       completedTime,
     });
@@ -440,12 +441,13 @@ export class TickTickClient {
 
   /**
    * Mark a task as abandoned.
-   * Requires both status=-1 and completedTime to be set.
+   * Requires status=-1, completedTime, and projectId to be set.
    */
-  async abandonTask(taskId: string): Promise<void> {
+  async abandonTask(taskId: string, projectId: string): Promise<void> {
     const completedTime = new Date().toISOString();
     await this.updateTask({ 
       id: taskId, 
+      projectId,
       status: -1,
       completedTime,
     });
@@ -454,8 +456,8 @@ export class TickTickClient {
   /**
    * Reopen a closed task.
    */
-  async reopenTask(taskId: string): Promise<void> {
-    await this.updateTask({ id: taskId, status: 0 });
+  async reopenTask(taskId: string, projectId: string): Promise<void> {
+    await this.updateTask({ id: taskId, projectId, status: 0 });
   }
 
   /**

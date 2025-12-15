@@ -89,8 +89,8 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
     await apiDelay();
 
     // Complete it
-    console.log(`[DEBUG] Completing task ${task.id}...`);
-    await client.completeTask(task.id);
+    console.log(`[DEBUG] Completing task ${task.id} in project ${testProject.getProjectId()}...`);
+    await client.completeTask(task.id, testProject.getProjectId());
     console.log(`[DEBUG] Complete request sent`);
     await apiDelay();
 
@@ -131,11 +131,11 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
     testProject.trackTask(task.id);
     await apiDelay();
 
-    await client.completeTask(task.id);
+    await client.completeTask(task.id, testProject.getProjectId());
     await apiDelay();
 
     // Reopen it
-    await client.reopenTask(task.id);
+    await client.reopenTask(task.id, testProject.getProjectId());
     await apiDelay();
 
     // Verify it's back in active tasks
