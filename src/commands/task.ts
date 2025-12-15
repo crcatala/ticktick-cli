@@ -18,7 +18,7 @@ import {
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
 import { createReminder, formatReminderTrigger } from "../utils/reminder.js";
-import { parseRepeatPattern, formatRepeatFlag } from "../utils/repeat.js";
+import { parseRepeatPattern, formatRepeatFlag, REPEAT_FROM_DEFAULT } from "../utils/repeat.js";
 import { handleError } from "./errors.js";
 
 // Maximum reminders per task based on TickTick API observation
@@ -347,7 +347,7 @@ export function createTaskCommand(): Command {
 
             const parsed = parseRepeatPattern(options.repeat, repeatOptions);
             taskData.repeatFlag = parsed.repeatFlag;
-            taskData.repeatFrom = "2"; // Standard value observed from TickTick web app
+            taskData.repeatFrom = REPEAT_FROM_DEFAULT; // Standard value observed from TickTick web app
             
             // Set repeatFirstDate to the due date
             if (taskData.dueDate) {
@@ -512,7 +512,7 @@ export function createTaskCommand(): Command {
 
             const parsed = parseRepeatPattern(options.repeat, repeatOptions);
             updateData.repeatFlag = parsed.repeatFlag;
-            updateData.repeatFrom = "2"; // Standard value observed from TickTick web app
+            updateData.repeatFrom = REPEAT_FROM_DEFAULT; // Standard value observed from TickTick web app
             
             // Set repeatFirstDate to the due date (existing or new)
             const dueDate = options.due ? toISODate(parseDate(options.due)!) : foundTask.dueDate;

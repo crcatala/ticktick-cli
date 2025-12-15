@@ -186,6 +186,11 @@ describe("parseRepeatPattern", () => {
       expect(() => parseRepeatPattern("daily", { until: "not-a-date" })).toThrow(/Invalid until date/);
     });
 
+    it("throws on out-of-range until date", () => {
+      expect(() => parseRepeatPattern("daily", { until: "2024-99-99" })).toThrow(/out of range/);
+      expect(() => parseRepeatPattern("daily", { until: "1999-01-01" })).toThrow(/out of range/);
+    });
+
     it("throws on count less than 1", () => {
       expect(() => parseRepeatPattern("daily", { count: 0 })).toThrow(/at least 1/);
     });

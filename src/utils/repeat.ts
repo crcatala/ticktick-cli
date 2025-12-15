@@ -6,13 +6,23 @@
  * Supported patterns:
  * - Simple: "daily", "weekly", "monthly", "yearly"
  * - Weekly with days: "weekly:mon,wed,fri"
- * - With interval: "weekly:2" (every 2 weeks), "monthly:3" (every 3 months)
+ * - With interval: "daily:3" (every 3 days), "weekly:2" (every 2 weeks)
+ * - Monthly by day of month: "monthly:15" (on the 15th)
  * - Monthly by weekday: "monthly:first-mon", "monthly:last-fri"
+ * 
+ * Note: For monthly, single numbers 1-31 are interpreted as day of month,
+ * not interval. Use "monthly" for simple monthly repeat.
  * 
  * End conditions (separate options):
  * - Until date: --repeat-until 2026-01-24
  * - Count: --repeat-count 10
  */
+
+/**
+ * Standard value for repeatFrom field.
+ * Observed from TickTick web app - appears to be constant across all repeat types.
+ */
+export const REPEAT_FROM_DEFAULT = "2" as const;
 
 /** Day name to RRULE abbreviation mapping */
 const DAY_MAP: Record<string, string> = {
@@ -204,10 +214,12 @@ function buildWeeklyRrule(modifier?: string): string[] {
  * 
  * Modifier can be:
  * - undefined: every month
- * - "3": every 3 months
- * - "15": on the 15th of each month
+ * - "15": on the 15th of each month (numbers 1-31 = day of month)
  * - "first-mon": first Monday of each month
  * - "last-fri": last Friday of each month
+ * 
+ * Note: Single numbers are interpreted as day of month, not interval.
+ * For simple monthly repeat, use "monthly" without modifier.
  */
 function buildMonthlyRrule(modifier?: string): string[] {
   const parts = [`FREQ=MONTHLY`];
@@ -304,10 +316,21 @@ function formatUntilDate(dateStr: string): string {
   // Remove any dashes and validate format
   const cleaned = dateStr.replace(/-/g, "");
   
-  // Validate it looks like a date
+  // Validate it looks like a date (8 digits)
   if (!/^\d{8}$/.test(cleaned)) {
     throw new Error(
       `Invalid until date: "${dateStr}". Use YYYY-MM-DD format.`
+    );
+  }
+  
+  // Basic sanity check on date values
+  const year = parseInt(cleaned.slice(0, 4), 10);
+  const month = parseInt(cleaned.slice(4, 6), 10);
+  const day = parseInt(cleaned.slice(6, 8), 10);
+  
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    throw new Error(
+      `Invalid until date: "${dateStr}". Date values out of range.`
     );
   }
   
