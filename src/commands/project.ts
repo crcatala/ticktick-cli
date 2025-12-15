@@ -136,8 +136,18 @@ export function createProjectCommand(): Command {
           projectData.kind = options.kind;
         }
         // Support both --folder and --group (folder takes precedence)
-        if (options.folder || options.group) {
-          projectData.groupId = options.folder || options.group;
+        const folderId = options.folder || options.group;
+        if (folderId) {
+          // Validate that the folder exists
+          const groups = await client.getProjectGroups();
+          const foundFolder = groups.find(
+            (g) => g.id === folderId || g.id?.startsWith(folderId)
+          );
+          if (!foundFolder) {
+            printError(`Folder not found: ${folderId}`);
+            process.exit(1);
+          }
+          projectData.groupId = foundFolder.id;
         }
 
         const project = await client.createProject(projectData);
@@ -199,7 +209,16 @@ export function createProjectCommand(): Command {
           updateData.color = options.color;
         }
         if (newFolder) {
-          updateData.groupId = newFolder;
+          // Validate that the folder exists
+          const groups = await client.getProjectGroups();
+          const foundFolder = groups.find(
+            (g) => g.id === newFolder || g.id?.startsWith(newFolder)
+          );
+          if (!foundFolder) {
+            printError(`Folder not found: ${newFolder}`);
+            process.exit(1);
+          }
+          updateData.groupId = foundFolder.id;
         }
         if (clearFolder) {
           // Set to empty string or null to clear the group

@@ -8,6 +8,19 @@ import { formatDate } from "../utils/date.js";
 import type { Task, Project, Tag, ProjectGroup } from "../api/types.js";
 
 /**
+ * Build a map of group ID -> group name for folder lookups.
+ */
+function buildGroupMap(groups: ProjectGroup[]): Map<string, string> {
+  const groupMap = new Map<string, string>();
+  for (const g of groups) {
+    if (g.id && g.name) {
+      groupMap.set(g.id, g.name);
+    }
+  }
+  return groupMap;
+}
+
+/**
  * Render a table with headers and rows.
  */
 function renderTable(headers: string[], rows: string[][]): void {
@@ -61,15 +74,7 @@ export function printTasksTable(tasks: Task[]): void {
  * @param groups - Optional groups for folder name lookup
  */
 export function printProjectsTable(projects: Project[], groups?: ProjectGroup[]): void {
-  // Build group ID -> name map for folder lookup
-  const groupMap = new Map<string, string>();
-  if (groups) {
-    for (const g of groups) {
-      if (g.id && g.name) {
-        groupMap.set(g.id, g.name);
-      }
-    }
-  }
+  const groupMap = groups ? buildGroupMap(groups) : new Map<string, string>();
 
   const headers = ["ID", "Name", "Folder", "Kind", "Color"];
   const rows = projects.map((project) => {
@@ -91,13 +96,7 @@ export function printProjectsTable(projects: Project[], groups?: ProjectGroup[])
  * @param groups - Groups for folder names
  */
 export function printProjectsByFolder(projects: Project[], groups: ProjectGroup[]): void {
-  // Build group ID -> name map
-  const groupMap = new Map<string, string>();
-  for (const g of groups) {
-    if (g.id && g.name) {
-      groupMap.set(g.id, g.name);
-    }
-  }
+  const groupMap = buildGroupMap(groups);
 
   // Group projects by folder
   const byFolder = new Map<string | null, Project[]>();

@@ -23,7 +23,11 @@ import { getGlobalOptions } from "../index.js";
  * @param commandName - "group" or "folder"
  */
 function buildGroupCommand(commandName: string): Command {
-  const description = commandName === "folder" 
+  const isFolder = commandName === "folder";
+  const entityName = isFolder ? "folder" : "group";
+  const entityNameCap = isFolder ? "Folder" : "Group";
+  
+  const description = isFolder 
     ? "Manage folders (project groups)" 
     : "Manage project groups (folders)";
   const group = new Command(commandName).description(description);
@@ -31,7 +35,7 @@ function buildGroupCommand(commandName: string): Command {
   // list command
   group
     .command("list")
-    .description("List all project groups")
+    .description(`List all ${entityName}s`)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, options) {
@@ -42,7 +46,7 @@ function buildGroupCommand(commandName: string): Command {
         if (options.json) {
           printJson(groups);
         } else if (groups.length === 0) {
-          printInfo("No project groups found");
+          printInfo(`No ${entityName}s found`);
         } else {
           printGroupsTable(groups);
         }
@@ -52,7 +56,7 @@ function buildGroupCommand(commandName: string): Command {
   // add command
   group
     .command("add <name>")
-    .description("Create a new project group")
+    .description(`Create a new ${entityName}`)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, name: string, options) {
@@ -65,7 +69,7 @@ function buildGroupCommand(commandName: string): Command {
         if (options.json) {
           printJson(createdGroup);
         } else {
-          printSuccess(`Created group: ${createdGroup.name}`);
+          printSuccess(`Created ${entityName}: ${createdGroup.name}`);
           printInfo(`ID: ${createdGroup.id}`);
         }
       })
@@ -74,7 +78,7 @@ function buildGroupCommand(commandName: string): Command {
   // edit command
   group
     .command("edit <id>")
-    .description("Edit an existing project group")
+    .description(`Edit an existing ${entityName}`)
     .option("-n, --name <name>", "New name")
     .option("--json", "Output as JSON")
     .action(
@@ -89,7 +93,7 @@ function buildGroupCommand(commandName: string): Command {
         );
 
         if (!foundGroup) {
-          printError(`Project group not found: ${id}`);
+          printError(`${entityNameCap} not found: ${id}`);
           process.exit(1);
         }
 
@@ -106,7 +110,7 @@ function buildGroupCommand(commandName: string): Command {
         if (options.json) {
           printJson(updatedGroup);
         } else {
-          printSuccess(`Updated group: ${foundGroup.name}`);
+          printSuccess(`Updated ${entityName}: ${foundGroup.name}`);
         }
       })
     );
@@ -114,7 +118,7 @@ function buildGroupCommand(commandName: string): Command {
   // delete command
   group
     .command("delete <id>")
-    .description("Delete a project group")
+    .description(`Delete a ${entityName}`)
     .option("-f, --force", "Skip confirmation")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -128,19 +132,19 @@ function buildGroupCommand(commandName: string): Command {
         );
 
         if (!foundGroup) {
-          printError(`Project group not found: ${id}`);
+          printError(`${entityNameCap} not found: ${id}`);
           process.exit(1);
         }
 
         await client.deleteProjectGroups([foundGroup.id]);
-        printSuccess(`Deleted group: ${foundGroup.name}`);
+        printSuccess(`Deleted ${entityName}: ${foundGroup.name}`);
       })
     );
 
   // show command - display folder details and its projects
   group
     .command("show <id>")
-    .description("Show folder details and its projects")
+    .description(`Show ${entityName} details and its projects`)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
