@@ -5,6 +5,7 @@
 import { cyan, dim } from "./colors.js";
 import { formatPriority, truncateId } from "./format.js";
 import { formatDate } from "../utils/date.js";
+import { formatRepeatFlag } from "../utils/repeat.js";
 import type { Task, Project, Tag, ProjectGroup } from "../api/types.js";
 
 /**
@@ -55,17 +56,34 @@ function stripAnsi(str: string): string {
 
 /**
  * Print a table of tasks.
+ * Shows repeat column only if any task has a repeat pattern.
  */
 export function printTasksTable(tasks: Task[]): void {
-  const headers = ["ID", "Title", "Due", "Priority", "Project"];
-  const rows = tasks.map((task) => [
-    truncateId(task.id),
-    task.title?.slice(0, 50) ?? "-",
-    formatDate(task.dueDate),
-    formatPriority(task.priority),
-    truncateId(task.projectId),
-  ]);
-  renderTable(headers, rows);
+  // Check if any task has a repeat pattern
+  const hasRepeat = tasks.some((t) => t.repeatFlag);
+
+  if (hasRepeat) {
+    const headers = ["ID", "Title", "Due", "Repeat", "Priority", "Project"];
+    const rows = tasks.map((task) => [
+      truncateId(task.id),
+      task.title?.slice(0, 40) ?? "-",
+      formatDate(task.dueDate),
+      formatRepeatFlag(task.repeatFlag) ?? "-",
+      formatPriority(task.priority),
+      truncateId(task.projectId),
+    ]);
+    renderTable(headers, rows);
+  } else {
+    const headers = ["ID", "Title", "Due", "Priority", "Project"];
+    const rows = tasks.map((task) => [
+      truncateId(task.id),
+      task.title?.slice(0, 50) ?? "-",
+      formatDate(task.dueDate),
+      formatPriority(task.priority),
+      truncateId(task.projectId),
+    ]);
+    renderTable(headers, rows);
+  }
 }
 
 /**

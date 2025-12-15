@@ -39,6 +39,12 @@ export interface TaskCreate {
   reminders?: Reminder[];
   tags?: string[];
   timeZone?: string;
+  /** RRULE string for recurring tasks (e.g., "RRULE:FREQ=DAILY;INTERVAL=1") */
+  repeatFlag?: string;
+  /** First date of recurring task (ISO 8601 format) */
+  repeatFirstDate?: string;
+  /** Repeat mode - "2" appears to be standard value */
+  repeatFrom?: string;
 }
 
 export interface ChecklistItemInput {

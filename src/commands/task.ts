@@ -18,6 +18,7 @@ import {
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
 import { createReminder, formatReminderTrigger } from "../utils/reminder.js";
+import { parseRepeatPattern, formatRepeatFlag, REPEAT_FROM_DEFAULT } from "../utils/repeat.js";
 import { handleError } from "./errors.js";
 
 // Maximum reminders per task based on TickTick API observation
@@ -164,6 +165,9 @@ export function createTaskCommand(): Command {
             checklistDisplay = `${completed}/${items.length} completed`;
           }
 
+          // Format repeat pattern
+          const repeatDisplay = formatRepeatFlag(fullTask.repeatFlag) ?? "-";
+
           printKeyValue(
             {
               ID: fullTask.id ?? "-",
@@ -175,6 +179,7 @@ export function createTaskCommand(): Command {
                 ""
               ),
               "Due Date": formatDate(fullTask.dueDate),
+              Repeat: repeatDisplay,
               Reminders: remindersStr,
               Tags: fullTask.tags?.join(", ") ?? "-",
               Checklist: checklistDisplay,
@@ -189,6 +194,7 @@ export function createTaskCommand(): Command {
               "Project",
               "Priority",
               "Due Date",
+              "Repeat",
               "Reminders",
               "Tags",
               "Checklist",
@@ -249,6 +255,9 @@ export function createTaskCommand(): Command {
       arr.push(val);
       return arr;
     }, [])
+    .option("--repeat <pattern>", "Repeat pattern (daily, weekly, monthly, yearly, weekly:mon,wed,fri, monthly:first-mon)")
+    .option("--repeat-until <date>", "End repeat on date (YYYY-MM-DD)")
+    .option("--repeat-count <n>", "End repeat after N occurrences", parseInt)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, title: string, options) {
@@ -311,6 +320,58 @@ export function createTaskCommand(): Command {
           taskData.reminders = reminders;
         }
 
+        // Handle repeat pattern
+        if (options.repeat) {
+          // Repeat requires a start/due date
+          if (!options.due) {
+            printError("Repeat pattern requires a due date");
+            printInfo("Use --due to set a due date for this task");
+            printInfo("Example: tt task add 'Daily standup' --due tomorrow --repeat daily");
+            process.exit(1);
+          }
+
+          // Validate repeat-until and repeat-count are mutually exclusive
+          if (options.repeatUntil && options.repeatCount) {
+            printError("Cannot use both --repeat-until and --repeat-count");
+            process.exit(1);
+          }
+
+          try {
+            const repeatOptions: { until?: string; count?: number } = {};
+            if (options.repeatUntil) {
+              repeatOptions.until = options.repeatUntil;
+            }
+            if (options.repeatCount) {
+              repeatOptions.count = options.repeatCount;
+            }
+
+            const parsed = parseRepeatPattern(options.repeat, repeatOptions);
+            taskData.repeatFlag = parsed.repeatFlag;
+            taskData.repeatFrom = REPEAT_FROM_DEFAULT; // Standard value observed from TickTick web app
+            
+            // Set repeatFirstDate to the due date
+            if (taskData.dueDate) {
+              taskData.repeatFirstDate = taskData.dueDate;
+            }
+          } catch (err) {
+            printError(err instanceof Error ? err.message : `Invalid repeat pattern: ${options.repeat}`);
+            printInfo("Supported patterns:");
+            printInfo("  daily              - Every day");
+            printInfo("  weekly             - Every week");
+            printInfo("  weekly:mon,wed,fri - Weekly on specific days");
+            printInfo("  weekly:2           - Every 2 weeks");
+            printInfo("  monthly            - Every month");
+            printInfo("  monthly:15         - Monthly on the 15th");
+            printInfo("  monthly:first-mon  - First Monday of each month");
+            printInfo("  yearly             - Every year");
+            printInfo("");
+            printInfo("End conditions:");
+            printInfo("  --repeat-until 2026-01-24  - End on specific date");
+            printInfo("  --repeat-count 10          - End after 10 occurrences");
+            process.exit(1);
+          }
+        }
+
         const task = await client.createTask(taskData);
 
         if (options.json) {
@@ -336,6 +397,10 @@ export function createTaskCommand(): Command {
       return arr;
     }, [])
     .option("--clear-reminders", "Remove all reminders from task")
+    .option("--repeat <pattern>", "Repeat pattern (daily, weekly, monthly, yearly, weekly:mon,wed,fri)")
+    .option("--repeat-until <date>", "End repeat on date (YYYY-MM-DD)")
+    .option("--repeat-count <n>", "End repeat after N occurrences", parseInt)
+    .option("--clear-repeat", "Remove repeat pattern from task")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -412,6 +477,65 @@ export function createTaskCommand(): Command {
             process.exit(1);
           }
           updateData.reminders = reminders;
+        }
+
+        // Handle repeat pattern
+        if (options.clearRepeat) {
+          // Clear repeat by setting repeatFlag to empty/null
+          updateData.repeatFlag = "";
+          updateData.repeatFrom = undefined;
+          updateData.repeatFirstDate = undefined;
+        } else if (options.repeat) {
+          // Repeat requires a start/due date
+          const willHaveDueDate = options.due || foundTask.dueDate || foundTask.startDate;
+          if (!willHaveDueDate) {
+            printError("Repeat pattern requires a due date");
+            printInfo("This task has no due date. Use --due to set one");
+            printInfo("Example: tt task edit <id> --due tomorrow --repeat daily");
+            process.exit(1);
+          }
+
+          // Validate repeat-until and repeat-count are mutually exclusive
+          if (options.repeatUntil && options.repeatCount) {
+            printError("Cannot use both --repeat-until and --repeat-count");
+            process.exit(1);
+          }
+
+          try {
+            const repeatOptions: { until?: string; count?: number } = {};
+            if (options.repeatUntil) {
+              repeatOptions.until = options.repeatUntil;
+            }
+            if (options.repeatCount) {
+              repeatOptions.count = options.repeatCount;
+            }
+
+            const parsed = parseRepeatPattern(options.repeat, repeatOptions);
+            updateData.repeatFlag = parsed.repeatFlag;
+            updateData.repeatFrom = REPEAT_FROM_DEFAULT; // Standard value observed from TickTick web app
+            
+            // Set repeatFirstDate to the due date (existing or new)
+            const dueDate = options.due ? toISODate(parseDate(options.due)!) : foundTask.dueDate;
+            if (dueDate) {
+              updateData.repeatFirstDate = dueDate;
+            }
+          } catch (err) {
+            printError(err instanceof Error ? err.message : `Invalid repeat pattern: ${options.repeat}`);
+            printInfo("Supported patterns:");
+            printInfo("  daily              - Every day");
+            printInfo("  weekly             - Every week");
+            printInfo("  weekly:mon,wed,fri - Weekly on specific days");
+            printInfo("  weekly:2           - Every 2 weeks");
+            printInfo("  monthly            - Every month");
+            printInfo("  monthly:15         - Monthly on the 15th");
+            printInfo("  monthly:first-mon  - First Monday of each month");
+            printInfo("  yearly             - Every year");
+            printInfo("");
+            printInfo("End conditions:");
+            printInfo("  --repeat-until 2026-01-24  - End on specific date");
+            printInfo("  --repeat-count 10          - End after 10 occurrences");
+            process.exit(1);
+          }
         }
 
         const task = await client.updateTask(updateData);
