@@ -16,6 +16,7 @@ import {
 } from "../output/index.js";
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
+import { createReminder, formatReminderTrigger } from "../utils/reminder.js";
 import { handleError } from "./errors.js";
 import {
   filterByProject,
@@ -83,6 +84,14 @@ export function createTaskCommand(): Command {
         if (options.json) {
           printJson(foundTask);
         } else {
+          // Format reminders for display
+          let remindersStr = "-";
+          if (foundTask.reminders && foundTask.reminders.length > 0) {
+            remindersStr = foundTask.reminders
+              .map((r) => formatReminderTrigger(r.trigger))
+              .join(", ");
+          }
+
           printKeyValue(
             {
               ID: foundTask.id ?? "-",
@@ -94,6 +103,7 @@ export function createTaskCommand(): Command {
                 ""
               ),
               "Due Date": formatDate(foundTask.dueDate),
+              Reminders: remindersStr,
               Tags: foundTask.tags?.join(", ") ?? "-",
               Status: foundTask.status === 2 ? "Completed" : "Active",
               Created: formatDate(foundTask.createdTime),
@@ -106,6 +116,7 @@ export function createTaskCommand(): Command {
               "Project",
               "Priority",
               "Due Date",
+              "Reminders",
               "Tags",
               "Status",
               "Created",
@@ -154,6 +165,10 @@ export function createTaskCommand(): Command {
       arr.push(val);
       return arr;
     }, [])
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - can be used multiple times", (val, arr: string[]) => {
+      arr.push(val);
+      return arr;
+    }, [])
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, title: string, options) {
@@ -184,6 +199,23 @@ export function createTaskCommand(): Command {
         if (options.tag && options.tag.length > 0) {
           taskData.tags = options.tag;
         }
+        if (options.reminder && options.reminder.length > 0) {
+          const reminders = [];
+          for (const timeStr of options.reminder) {
+            const reminder = createReminder(timeStr);
+            if (!reminder) {
+              printError(`Invalid reminder format: ${timeStr}`);
+              printInfo("Supported formats: on-time, 15m, 1h, 2h30m, 1d");
+              process.exit(1);
+            }
+            reminders.push(reminder);
+          }
+          if (reminders.length > 5) {
+            printError("Maximum 5 reminders allowed per task");
+            process.exit(1);
+          }
+          taskData.reminders = reminders;
+        }
 
         const task = await client.createTask(taskData);
 
@@ -205,6 +237,11 @@ export function createTaskCommand(): Command {
     .option("-p, --project <id>", "New project ID")
     .option("--priority <level>", "New priority (high, medium, low, none)")
     .option("-d, --due <date>", "New due date (YYYY-MM-DD, today, tomorrow, +3d)")
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - can be used multiple times", (val, arr: string[]) => {
+      arr.push(val);
+      return arr;
+    }, [])
+    .option("--clear-reminders", "Remove all reminders from task")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -245,6 +282,25 @@ export function createTaskCommand(): Command {
             printError(`Invalid date format: ${options.due}`);
             process.exit(1);
           }
+        }
+        if (options.clearReminders) {
+          updateData.reminders = [];
+        } else if (options.reminder && options.reminder.length > 0) {
+          const reminders = [];
+          for (const timeStr of options.reminder) {
+            const reminder = createReminder(timeStr);
+            if (!reminder) {
+              printError(`Invalid reminder format: ${timeStr}`);
+              printInfo("Supported formats: on-time, 15m, 1h, 2h30m, 1d");
+              process.exit(1);
+            }
+            reminders.push(reminder);
+          }
+          if (reminders.length > 5) {
+            printError("Maximum 5 reminders allowed per task");
+            process.exit(1);
+          }
+          updateData.reminders = reminders;
         }
 
         const task = await client.updateTask(updateData);
