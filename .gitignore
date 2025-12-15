@@ -28,6 +28,9 @@ bun.lockb
 # Test coverage
 coverage/
 
+# Schema snapshots (generated files)
+schemas/snapshots/
+
 # Beads protected branches (issues.jsonl only on sync branch)
 .beads/issues.jsonl
 .beads/deletions.jsonl
