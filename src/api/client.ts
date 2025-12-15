@@ -348,9 +348,14 @@ export class TickTickClient {
 
   /**
    * Delete tasks.
+   * @param taskIds - Array of task IDs to delete
+   * @param projectId - Optional project ID (required by some API versions)
    */
-  async deleteTasks(taskIds: string[]): Promise<void> {
-    const deletes = taskIds.map((taskId) => ({ taskId }));
+  async deleteTasks(taskIds: string[], projectId?: string): Promise<void> {
+    const deletes = taskIds.map((taskId) => ({
+      taskId,
+      ...(projectId ? { projectId } : {}),
+    }));
 
     const data = await this.request<unknown>(
       ENDPOINTS.BATCH_TASK,

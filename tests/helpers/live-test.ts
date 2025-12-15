@@ -222,14 +222,22 @@ export class TestProject {
     let cleanedGroups = 0;
 
     try {
-      // First, cleanup orphaned tasks (tasks with test prefix in title)
-      // These might exist outside of test projects
+      // Get projects first to identify test project IDs
+      const projects = await this.client.getProjects();
+      const orphanedProjects = projects.filter(p => p.name && isTestResource(p.name));
+      const testProjectIds = new Set(orphanedProjects.map(p => p.id));
+
+      // First, cleanup orphaned tasks (tasks with test prefix OR in test projects)
       const tasks = await this.client.getTasks();
-      const orphanedTasks = tasks.filter(t => t.title && isTestResource(t.title));
+      const orphanedTasks = tasks.filter(t => 
+        (t.title && isTestResource(t.title)) ||
+        (t.projectId && testProjectIds.has(t.projectId))
+      );
 
       for (const task of orphanedTasks) {
         try {
-          await this.client.deleteTasks([task.id]);
+          // Include projectId in delete request
+          await this.client.deleteTasks([task.id], task.projectId ?? undefined);
           cleanedTasks++;
           await apiDelay();
         } catch (error) {
@@ -237,9 +245,12 @@ export class TestProject {
         }
       }
 
-      // Cleanup orphaned projects one at a time
-      const projects = await this.client.getProjects();
-      const orphanedProjects = projects.filter(p => p.name && isTestResource(p.name));
+      // Wait for task deletions to propagate
+      if (cleanedTasks > 0) {
+        await apiDelay(1000);
+      }
+
+      // Re-fetch projects and cleanup orphaned ones
 
       for (const project of orphanedProjects) {
         try {
@@ -311,28 +322,61 @@ export async function cleanupAllTestResources(): Promise<void> {
   let cleanedTags = 0;
   let cleanedGroups = 0;
 
-  // Cleanup tasks with test prefix
+  // First, get all projects to identify test projects
+  let testProjectIds: Set<string> = new Set();
+  try {
+    const projects = await client.getProjects();
+    const testProjects = projects.filter(p => p.name && isTestResource(p.name));
+    testProjectIds = new Set(testProjects.map(p => p.id));
+    console.log(`[cleanup] Found ${testProjects.length} test project(s)`);
+  } catch (error) {
+    console.warn("[cleanup] Error fetching projects:", error);
+  }
+
+  // Cleanup tasks - both by title prefix AND tasks in test projects
   try {
     const tasks = await client.getTasks();
-    const testTasks = tasks.filter(t => t.title && isTestResource(t.title));
+    const testTasks = tasks.filter(t => 
+      (t.title && isTestResource(t.title)) || 
+      (t.projectId && testProjectIds.has(t.projectId))
+    );
     console.log(`[cleanup] Found ${testTasks.length} test task(s) to delete`);
 
+    // Group tasks by project for proper deletion
+    const tasksByProject = new Map<string, string[]>();
     for (const task of testTasks) {
-      try {
-        await client.deleteTasks([task.id]);
-        cleanedTasks++;
-        console.log(`[cleanup] Deleted task: ${task.title}`);
-        await apiDelay();
-      } catch (error) {
-        console.warn(`[cleanup] Failed to delete task ${task.id}:`, error);
+      const projectId = task.projectId || "unknown";
+      if (!tasksByProject.has(projectId)) {
+        tasksByProject.set(projectId, []);
+      }
+      tasksByProject.get(projectId)!.push(task.id);
+    }
+
+    // Delete tasks project by project, including projectId in the delete request
+    for (const [projectId, taskIds] of tasksByProject) {
+      for (const taskId of taskIds) {
+        try {
+          const task = testTasks.find(t => t.id === taskId);
+          // Include projectId in delete request - some API versions require it
+          await client.deleteTasks([taskId], projectId !== "unknown" ? projectId : undefined);
+          cleanedTasks++;
+          console.log(`[cleanup] Deleted task: ${task?.title || taskId}`);
+          await apiDelay();
+        } catch (error) {
+          console.warn(`[cleanup] Failed to delete task ${taskId}:`, error);
+        }
       }
     }
   } catch (error) {
-    console.warn("[cleanup] Error fetching tasks:", error);
+    console.warn("[cleanup] Error fetching/deleting tasks:", error);
   }
 
-  // Cleanup test projects
+  // Wait a bit for task deletions to propagate before deleting projects
+  await apiDelay(1000);
+
+  // Cleanup test projects (now that tasks are deleted)
   try {
+    // Re-fetch projects in case state changed
     const projects = await client.getProjects();
     const testProjects = projects.filter(p => p.name && isTestResource(p.name));
     console.log(`[cleanup] Found ${testProjects.length} test project(s) to delete`);
