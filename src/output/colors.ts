@@ -3,15 +3,17 @@
  * Replaces picocolors with ~15 lines of code.
  */
 
-const isColorSupported =
-  !process.env.NO_COLOR &&
-  (process.env.FORCE_COLOR !== "0") &&
-  (process.stdout.isTTY || process.env.FORCE_COLOR === "1");
+function isColorSupported(): boolean {
+  return (
+    !process.env.NO_COLOR &&
+    process.env.FORCE_COLOR !== "0" &&
+    (process.stdout.isTTY || process.env.FORCE_COLOR === "1")
+  );
+}
 
 function fmt(code: number): (s: string) => string {
-  return isColorSupported
-    ? (s: string) => `\x1b[${code}m${s}\x1b[0m`
-    : (s: string) => s;
+  return (s: string) =>
+    isColorSupported() ? `\x1b[${code}m${s}\x1b[0m` : s;
 }
 
 // Colors
