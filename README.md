@@ -185,6 +185,7 @@ fi
 | `ticktick user status` | Show subscription status |
 | `ticktick user stats` | Show usage statistics |
 | `ticktick sync` | Fetch full state snapshot |
+| `ticktick trash empty` | Permanently delete all trashed items |
 
 Use `ticktick COMMAND --help` for detailed options.
 
@@ -252,6 +253,9 @@ export TICKTICK_TOKEN=your_session_token_here
 
 # Optional: enable debug logging
 export TICKTICK_DEBUG=1
+
+# Optional: customize delay between API calls (default: 500ms)
+export TICKTICK_TEST_DELAY_MS=1000
 
 # Run live tests only
 bun test tests/integration/live-api.test.ts

@@ -11,6 +11,7 @@ import {
   createTagCommand,
   createUserCommand,
   createSyncCommand,
+  createTrashCommand,
 } from "./commands/index.js";
 import type { ValidationStrategy } from "./schemas/index.js";
 
@@ -59,6 +60,7 @@ program.addCommand(createGroupCommand());
 program.addCommand(createTagCommand());
 program.addCommand(createUserCommand());
 program.addCommand(createSyncCommand());
+program.addCommand(createTrashCommand());
 
 // Parse command line arguments (only when run directly, not when imported)
 if (import.meta.main) {
