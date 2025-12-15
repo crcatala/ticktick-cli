@@ -11,9 +11,9 @@ import { ValidationError } from "../schemas/index.js";
 export function handleError<T extends unknown[]>(
   fn: (...args: T) => Promise<void>
 ): (...args: T) => Promise<void> {
-  return async (...args: T) => {
+  return async function (this: any, ...args: T) {
     try {
-      await fn(...args);
+      await fn.apply(this, args);
     } catch (error) {
       if (error instanceof AuthError) {
         printError(error.message);

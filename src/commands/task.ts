@@ -15,7 +15,14 @@ import {
   truncateId,
 } from "../output/index.js";
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
+import { parsePriority } from "../utils/priority.js";
 import { handleError } from "./errors.js";
+import {
+  filterByProject,
+  filterByTag,
+  filterByPriority,
+  findTaskById,
+} from "./task-filters.js";
 import { getGlobalOptions } from "../index.js";
 
 export function createTaskCommand(): Command {
@@ -37,22 +44,13 @@ export function createTaskCommand(): Command {
 
         // Apply filters
         if (options.project) {
-          tasks = tasks.filter((t) => t.projectId === options.project);
+          tasks = filterByProject(tasks, options.project);
         }
         if (options.tag) {
-          tasks = tasks.filter((t) => t.tags?.includes(options.tag));
+          tasks = filterByTag(tasks, options.tag);
         }
         if (options.priority) {
-          const priorityMap: Record<string, number> = {
-            high: 5,
-            medium: 3,
-            low: 1,
-            none: 0,
-          };
-          const priority = priorityMap[options.priority.toLowerCase()];
-          if (priority !== undefined) {
-            tasks = tasks.filter((t) => t.priority === priority);
-          }
+          tasks = filterByPriority(tasks, options.priority);
         }
 
         if (options.json) {
@@ -75,9 +73,7 @@ export function createTaskCommand(): Command {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
           printError(`Task not found: ${id}`);
@@ -174,13 +170,7 @@ export function createTaskCommand(): Command {
           taskData.content = options.content;
         }
         if (options.priority) {
-          const priorityMap: Record<string, number> = {
-            high: 5,
-            medium: 3,
-            low: 1,
-            none: 0,
-          };
-          taskData.priority = priorityMap[options.priority.toLowerCase()] ?? 0;
+          taskData.priority = parsePriority(options.priority);
         }
         if (options.due) {
           const dueDate = parseDate(options.due);
@@ -223,9 +213,7 @@ export function createTaskCommand(): Command {
 
         // Find the task first
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
           printError(`Task not found: ${id}`);
@@ -247,13 +235,7 @@ export function createTaskCommand(): Command {
           updateData.projectId = options.project;
         }
         if (options.priority) {
-          const priorityMap: Record<string, number> = {
-            high: 5,
-            medium: 3,
-            low: 1,
-            none: 0,
-          };
-          updateData.priority = priorityMap[options.priority.toLowerCase()] ?? 0;
+          updateData.priority = parsePriority(options.priority);
         }
         if (options.due) {
           const dueDate = parseDate(options.due);
@@ -286,9 +268,7 @@ export function createTaskCommand(): Command {
 
         // Find the task first
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
           printError(`Task not found: ${id}`);
@@ -311,9 +291,7 @@ export function createTaskCommand(): Command {
 
         // Find the task first
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
           printError(`Task not found: ${id}`);
@@ -336,9 +314,7 @@ export function createTaskCommand(): Command {
 
         // Check closed tasks
         const closedTasks = await client.getClosedTasks();
-        const foundTask = closedTasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(closedTasks, id);
 
         if (!foundTask) {
           printError(`Closed task not found: ${id}`);
@@ -362,9 +338,7 @@ export function createTaskCommand(): Command {
 
         // Find the task first
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === id || t.id?.startsWith(id)
-        );
+        const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
           printError(`Task not found: ${id}`);
@@ -387,12 +361,8 @@ export function createTaskCommand(): Command {
 
         // Find both tasks
         const tasks = await client.getTasks();
-        const childTask = tasks.find(
-          (t) => t.id === taskId || t.id?.startsWith(taskId)
-        );
-        const parentTask = tasks.find(
-          (t) => t.id === parentId || t.id?.startsWith(parentId)
-        );
+        const childTask = findTaskById(tasks, taskId);
+        const parentTask = findTaskById(tasks, parentId);
 
         if (!childTask) {
           printError(`Task not found: ${taskId}`);
@@ -419,9 +389,7 @@ export function createTaskCommand(): Command {
 
         // Find the task
         const tasks = await client.getTasks();
-        const foundTask = tasks.find(
-          (t) => t.id === taskId || t.id?.startsWith(taskId)
-        );
+        const foundTask = findTaskById(tasks, taskId);
 
         if (!foundTask) {
           printError(`Task not found: ${taskId}`);
