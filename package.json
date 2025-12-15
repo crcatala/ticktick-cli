@@ -1,7 +1,7 @@
 {
   "name": "ticktick-cli",
-  "version": "1.0.0",
-  "description": "Command-line interface for TickTick",
+  "version": "0.1.0",
+  "description": "Command-line interface for TickTick task management",
   "type": "module",
   "bin": {
     "ticktick": "./dist/ticktick"
@@ -15,6 +15,33 @@
     "typecheck": "tsc --noEmit",
     "schema:capture": "bun run scripts/schema-capture.ts"
   },
+  "keywords": [
+    "ticktick",
+    "cli",
+    "todo",
+    "task",
+    "productivity",
+    "task-management",
+    "command-line"
+  ],
+  "author": "crcatala",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crcatala/ticktick-cli.git"
+  },
+  "homepage": "https://github.com/crcatala/ticktick-cli#readme",
+  "bugs": {
+    "url": "https://github.com/crcatala/ticktick-cli/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "commander": "^14.0.0",
     "keytar": "^7.9.0",
