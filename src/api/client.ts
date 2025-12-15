@@ -61,7 +61,17 @@ interface RequestOptions {
  *
  * Total: 12 bytes = 24 hex characters
  */
-function generateDeviceId(): string {
+/**
+ * Generate a MongoDB ObjectId-style ID.
+ *
+ * Format: 24-char hex string:
+ * - Bytes 0-3 (8 hex chars): Unix timestamp in seconds
+ * - Bytes 4-8 (10 hex chars): Random value
+ * - Bytes 9-11 (6 hex chars): Counter/random
+ *
+ * This format is required by the TickTick API for task/project/group IDs.
+ */
+function generateObjectId(): string {
   // 4 bytes (8 hex chars): Unix timestamp
   const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, "0");
 
@@ -80,6 +90,14 @@ function generateDeviceId(): string {
   ).join("");
 
   return timestamp + random + counter;
+}
+
+/**
+ * Generate a unique device ID for the X-Device header.
+ * Uses the same ObjectId format that TickTick expects.
+ */
+function generateDeviceId(): string {
+  return generateObjectId();
 }
 
 /**
@@ -278,7 +296,7 @@ export class TickTickClient {
    */
   async createTask(task: TaskCreate): Promise<Task> {
     // Generate a temporary ID for the request
-    const tempId = crypto.randomUUID();
+    const tempId = generateObjectId();
     const taskWithId: Task = {
       ...task,
       id: tempId,
@@ -488,7 +506,7 @@ export class TickTickClient {
   async createProject(project: ProjectCreate): Promise<Project> {
     const projectWithId: Project = {
       ...project,
-      id: crypto.randomUUID(),
+      id: generateObjectId(),
     };
 
     const data = await this.request<unknown>(
@@ -603,7 +621,7 @@ export class TickTickClient {
   async createProjectGroup(group: ProjectGroupCreate): Promise<ProjectGroup> {
     const groupWithId: ProjectGroup = {
       ...group,
-      id: crypto.randomUUID(),
+      id: generateObjectId(),
     };
 
     const data = await this.request<unknown>(
