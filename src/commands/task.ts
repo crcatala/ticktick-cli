@@ -17,7 +17,12 @@ import {
 } from "../output/index.js";
 import { formatDate, parseDate, toISODate } from "../utils/date.js";
 import { parsePriority } from "../utils/priority.js";
+import { createReminder, formatReminderTrigger } from "../utils/reminder.js";
 import { handleError } from "./errors.js";
+
+// Maximum reminders per task based on TickTick API observation
+// (confirmed from API payload examples showing up to 5 reminders)
+const MAX_REMINDERS_PER_TASK = 5;
 import {
   filterByProject,
   filterByTag,
@@ -90,6 +95,14 @@ export function createTaskCommand(): Command {
         if (options.json) {
           printJson(fullTask);
         } else {
+          // Format reminders for display
+          let remindersStr = "-";
+          if (fullTask.reminders && fullTask.reminders.length > 0) {
+            remindersStr = fullTask.reminders
+              .map((r) => formatReminderTrigger(r.trigger))
+              .join(", ");
+          }
+
           // Format checklist summary
           const items: ChecklistItem[] = fullTask.items ?? [];
           let checklistDisplay = "-";
@@ -111,6 +124,7 @@ export function createTaskCommand(): Command {
                 ""
               ),
               "Due Date": formatDate(fullTask.dueDate),
+              Reminders: remindersStr,
               Tags: fullTask.tags?.join(", ") ?? "-",
               Checklist: checklistDisplay,
               Status: fullTask.status === 2 ? "Completed" : "Active",
@@ -124,6 +138,7 @@ export function createTaskCommand(): Command {
               "Project",
               "Priority",
               "Due Date",
+              "Reminders",
               "Tags",
               "Checklist",
               "Status",
@@ -179,6 +194,10 @@ export function createTaskCommand(): Command {
       arr.push(val);
       return arr;
     }, [])
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - requires --due date - can be used multiple times", (val, arr: string[]) => {
+      arr.push(val);
+      return arr;
+    }, [])
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, title: string, options) {
@@ -209,6 +228,37 @@ export function createTaskCommand(): Command {
         if (options.tag && options.tag.length > 0) {
           taskData.tags = options.tag;
         }
+        if (options.reminder && options.reminder.length > 0) {
+          // Reminders require a reference time (due date or start date)
+          if (!options.due) {
+            printError("Reminders require a due date");
+            printInfo("Use --due to set a due date for this task");
+            printInfo("Example: tt task add 'Meeting prep' --due tomorrow --reminder 1h");
+            process.exit(1);
+          }
+
+          const reminders = [];
+          for (const timeStr of options.reminder) {
+            const reminder = createReminder(timeStr);
+            if (!reminder) {
+              printError(`Invalid reminder format: ${timeStr}`);
+              printInfo("Supported formats:");
+              printInfo("  on-time    - Remind at task time");
+              printInfo("  15m        - 15 minutes before");
+              printInfo("  1h         - 1 hour before");
+              printInfo("  2h30m      - 2 hours 30 minutes before");
+              printInfo("  1d         - 1 day before");
+              printInfo("Can combine: 1d2h30m for 1 day, 2 hours, 30 minutes");
+              process.exit(1);
+            }
+            reminders.push(reminder);
+          }
+          if (reminders.length > MAX_REMINDERS_PER_TASK) {
+            printError(`Maximum ${MAX_REMINDERS_PER_TASK} reminders allowed per task`);
+            process.exit(1);
+          }
+          taskData.reminders = reminders;
+        }
 
         const task = await client.createTask(taskData);
 
@@ -230,6 +280,11 @@ export function createTaskCommand(): Command {
     .option("-p, --project <id>", "New project ID")
     .option("--priority <level>", "New priority (high, medium, low, none)")
     .option("-d, --due <date>", "New due date (YYYY-MM-DD, today, tomorrow, +3d)")
+    .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - requires --due date - can be used multiple times", (val, arr: string[]) => {
+      arr.push(val);
+      return arr;
+    }, [])
+    .option("--clear-reminders", "Remove all reminders from task")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -248,6 +303,7 @@ export function createTaskCommand(): Command {
         // Build update data
         const updateData: Parameters<typeof client.updateTask>[0] = {
           id: foundTask.id,
+          projectId: foundTask.projectId, // Always include projectId for proper task updates
         };
 
         if (options.title) {
@@ -270,6 +326,41 @@ export function createTaskCommand(): Command {
             printError(`Invalid date format: ${options.due}`);
             process.exit(1);
           }
+        }
+        if (options.clearReminders) {
+          updateData.reminders = [];
+        } else if (options.reminder && options.reminder.length > 0) {
+          // Reminders require a reference time (due date or start date)
+          // Check if task already has a due date OR if they're setting one now
+          const willHaveDueDate = options.due || foundTask.dueDate || foundTask.startDate;
+          if (!willHaveDueDate) {
+            printError("Reminders require a due date");
+            printInfo("This task has no due date. Use --due to set one");
+            printInfo("Example: tt task edit <id> --due tomorrow --reminder 1h");
+            process.exit(1);
+          }
+
+          const reminders = [];
+          for (const timeStr of options.reminder) {
+            const reminder = createReminder(timeStr);
+            if (!reminder) {
+              printError(`Invalid reminder format: ${timeStr}`);
+              printInfo("Supported formats:");
+              printInfo("  on-time    - Remind at task time");
+              printInfo("  15m        - 15 minutes before");
+              printInfo("  1h         - 1 hour before");
+              printInfo("  2h30m      - 2 hours 30 minutes before");
+              printInfo("  1d         - 1 day before");
+              printInfo("Can combine: 1d2h30m for 1 day, 2 hours, 30 minutes");
+              process.exit(1);
+            }
+            reminders.push(reminder);
+          }
+          if (reminders.length > MAX_REMINDERS_PER_TASK) {
+            printError(`Maximum ${MAX_REMINDERS_PER_TASK} reminders allowed per task`);
+            process.exit(1);
+          }
+          updateData.reminders = reminders;
         }
 
         const task = await client.updateTask(updateData);

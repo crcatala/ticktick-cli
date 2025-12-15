@@ -36,6 +36,7 @@ export interface TaskCreate {
   startDate?: string;
   isAllDay?: boolean;
   reminder?: string;
+  reminders?: Reminder[];
   tags?: string[];
   timeZone?: string;
 }

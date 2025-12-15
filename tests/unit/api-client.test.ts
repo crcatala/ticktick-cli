@@ -108,6 +108,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since completeTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to complete",
+          status: 0,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -131,6 +140,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since abandonTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to abandon",
+          status: 0,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -152,6 +170,15 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since reopenTask calls updateTask internally)
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) => {
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Task to reopen",
+          status: 2,
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: {} });
@@ -218,6 +245,86 @@ describe("TickTickClient", () => {
     expect(resp.need2FA).toBeTrue();
   });
 
+  test("createTask sends reminders array in request body", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "fakeid": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.createTask({
+      title: "Test with reminders",
+      reminders: [
+        { id: "694044a2725bb97301a131ef", trigger: "TRIGGER:-PT15M" },
+        { id: "694044a2725bb97301a131f0", trigger: "TRIGGER:-PT60M" },
+      ],
+    });
+
+    const body = capturedBody as { add: Array<{ title: string; reminders: Array<{ id: string; trigger: string }> }> };
+    expect(body.add).toHaveLength(1);
+    expect(body.add[0].title).toBe("Test with reminders");
+    expect(body.add[0].reminders).toBeDefined();
+    expect(body.add[0].reminders).toHaveLength(2);
+    expect(body.add[0].reminders[0].id).toBe("694044a2725bb97301a131ef");
+    expect(body.add[0].reminders[0].trigger).toBe("TRIGGER:-PT15M");
+    expect(body.add[0].reminders[1].id).toBe("694044a2725bb97301a131f0");
+    expect(body.add[0].reminders[1].trigger).toBe("TRIGGER:-PT60M");
+  });
+
+  test("updateTask sends reminders array in request body", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      reminders: [
+        { id: "694044a2725bb97301a131f1", trigger: "TRIGGER:-PT30M" },
+      ],
+    });
+
+    const body = capturedBody as { update: Array<{ id: string; reminders: Array<{ id: string; trigger: string }> }> };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].reminders).toBeDefined();
+    expect(body.update[0].reminders).toHaveLength(1);
+    expect(body.update[0].reminders[0].id).toBe("694044a2725bb97301a131f1");
+    expect(body.update[0].reminders[0].trigger).toBe("TRIGGER:-PT30M");
+  });
+
+  test("updateTask clears reminders with empty array", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateTask({
+      id: "task-123",
+      reminders: [],
+    });
+
+    const body = capturedBody as { update: Array<{ id: string; reminders: unknown[] }> };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("task-123");
+    expect(body.update[0].reminders).toBeDefined();
+    expect(body.update[0].reminders).toHaveLength(0);
+  });
+
   test("getTask fetches single task with projectId query param", async () => {
     let capturedUrl: string | undefined;
 
@@ -250,6 +357,17 @@ describe("TickTickClient", () => {
     let capturedBody: unknown;
 
     server.use(
+      // Mock getTask call (needed since updateTask fetches full task when projectId provided)
+      http.get(`${API_BASE}/task/:taskId`, ({ request, params }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("projectId")).toBe("project-456");
+        return HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Existing task",
+          items: [],
+        });
+      }),
       http.post(`${API_BASE}/batch/task`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ id2etag: { "task-123": "new-etag" } });
