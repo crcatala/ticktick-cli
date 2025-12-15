@@ -274,6 +274,16 @@ Live tests create resources with a `__tt-cli-test-` prefix:
 - Resources are automatically cleaned up after tests complete
 - Orphaned resources from failed runs are cleaned up on the next run
 
+**Manual cleanup:**
+
+If tests fail and leave orphaned resources (or you hit quota limits on a free account), run the cleanup script:
+
+```bash
+RUN_LIVE_TESTS=1 TICKTICK_TOKEN=xxx bun run tests/helpers/cleanup.ts
+```
+
+This will find and delete all resources with the `__tt-cli-test-` prefix.
+
 **GitHub Actions:**
 
 Live tests can be triggered manually via the "Live Integration Tests" workflow:

@@ -213,45 +213,185 @@ export class TestProject {
 
   /**
    * Cleanup orphaned test resources from previous failed runs.
+   * Deletes resources one at a time to avoid batch operation failures.
    */
   private async cleanupOrphanedResources(): Promise<void> {
+    let cleanedProjects = 0;
+    let cleanedTasks = 0;
+    let cleanedTags = 0;
+    let cleanedGroups = 0;
+
     try {
-      // Cleanup orphaned projects
+      // First, cleanup orphaned tasks (tasks with test prefix in title)
+      // These might exist outside of test projects
+      const tasks = await this.client.getTasks();
+      const orphanedTasks = tasks.filter(t => t.title && isTestResource(t.title));
+
+      for (const task of orphanedTasks) {
+        try {
+          await this.client.deleteTasks([task.id]);
+          cleanedTasks++;
+          await apiDelay();
+        } catch (error) {
+          console.warn(`[live-test] Failed to delete orphaned task ${task.id}:`, error);
+        }
+      }
+
+      // Cleanup orphaned projects one at a time
       const projects = await this.client.getProjects();
       const orphanedProjects = projects.filter(p => p.name && isTestResource(p.name));
 
-      if (orphanedProjects.length > 0) {
-        console.log(`[live-test] Cleaning up ${orphanedProjects.length} orphaned test project(s)`);
-        const projectIds = orphanedProjects.map(p => p.id);
-        await this.client.deleteProjects(projectIds);
-        await apiDelay();
+      for (const project of orphanedProjects) {
+        try {
+          await this.client.deleteProjects([project.id]);
+          cleanedProjects++;
+          await apiDelay();
+        } catch (error) {
+          console.warn(`[live-test] Failed to delete orphaned project ${project.id}:`, error);
+        }
       }
 
-      // Cleanup orphaned tags
+      // Cleanup orphaned tags one at a time
       const tags = await this.client.getTags();
       const orphanedTags = tags.filter(t => isTestResource(t.name));
 
       for (const tag of orphanedTags) {
-        console.log(`[live-test] Cleaning up orphaned test tag: ${tag.name}`);
-        await this.client.deleteTag(tag.name);
-        await apiDelay();
+        try {
+          await this.client.deleteTag(tag.name);
+          cleanedTags++;
+          await apiDelay();
+        } catch (error) {
+          console.warn(`[live-test] Failed to delete orphaned tag ${tag.name}:`, error);
+        }
       }
 
-      // Cleanup orphaned groups
+      // Cleanup orphaned groups one at a time
       const groups = await this.client.getProjectGroups();
       const orphanedGroups = groups.filter(g => g.name && isTestResource(g.name));
 
-      if (orphanedGroups.length > 0) {
-        console.log(`[live-test] Cleaning up ${orphanedGroups.length} orphaned test group(s)`);
-        const groupIds = orphanedGroups.map(g => g.id);
-        await this.client.deleteProjectGroups(groupIds);
-        await apiDelay();
+      for (const group of orphanedGroups) {
+        try {
+          await this.client.deleteProjectGroups([group.id]);
+          cleanedGroups++;
+          await apiDelay();
+        } catch (error) {
+          console.warn(`[live-test] Failed to delete orphaned group ${group.id}:`, error);
+        }
+      }
+
+      // Log summary
+      const total = cleanedTasks + cleanedProjects + cleanedTags + cleanedGroups;
+      if (total > 0) {
+        console.log(`[live-test] Cleaned up ${total} orphaned resource(s): ${cleanedTasks} tasks, ${cleanedProjects} projects, ${cleanedTags} tags, ${cleanedGroups} groups`);
       }
     } catch (error) {
       console.warn("[live-test] Error during orphan cleanup:", error);
       // Continue with test setup even if cleanup fails
     }
   }
+}
+
+/**
+ * Standalone cleanup function to remove all test resources.
+ * Can be run before tests to ensure a clean slate.
+ *
+ * Usage: RUN_LIVE_TESTS=1 TICKTICK_TOKEN=xxx bun run tests/helpers/cleanup.ts
+ */
+export async function cleanupAllTestResources(): Promise<void> {
+  if (!shouldRunLiveTests()) {
+    console.log("[cleanup] Skipping - RUN_LIVE_TESTS=1 and TICKTICK_TOKEN required");
+    return;
+  }
+
+  const client = getLiveClient();
+  console.log("[cleanup] Starting cleanup of all test resources...");
+
+  let cleanedTasks = 0;
+  let cleanedProjects = 0;
+  let cleanedTags = 0;
+  let cleanedGroups = 0;
+
+  // Cleanup tasks with test prefix
+  try {
+    const tasks = await client.getTasks();
+    const testTasks = tasks.filter(t => t.title && isTestResource(t.title));
+    console.log(`[cleanup] Found ${testTasks.length} test task(s) to delete`);
+
+    for (const task of testTasks) {
+      try {
+        await client.deleteTasks([task.id]);
+        cleanedTasks++;
+        console.log(`[cleanup] Deleted task: ${task.title}`);
+        await apiDelay();
+      } catch (error) {
+        console.warn(`[cleanup] Failed to delete task ${task.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.warn("[cleanup] Error fetching tasks:", error);
+  }
+
+  // Cleanup test projects
+  try {
+    const projects = await client.getProjects();
+    const testProjects = projects.filter(p => p.name && isTestResource(p.name));
+    console.log(`[cleanup] Found ${testProjects.length} test project(s) to delete`);
+
+    for (const project of testProjects) {
+      try {
+        await client.deleteProjects([project.id]);
+        cleanedProjects++;
+        console.log(`[cleanup] Deleted project: ${project.name}`);
+        await apiDelay();
+      } catch (error) {
+        console.warn(`[cleanup] Failed to delete project ${project.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.warn("[cleanup] Error fetching projects:", error);
+  }
+
+  // Cleanup test tags
+  try {
+    const tags = await client.getTags();
+    const testTags = tags.filter(t => isTestResource(t.name));
+    console.log(`[cleanup] Found ${testTags.length} test tag(s) to delete`);
+
+    for (const tag of testTags) {
+      try {
+        await client.deleteTag(tag.name);
+        cleanedTags++;
+        console.log(`[cleanup] Deleted tag: ${tag.name}`);
+        await apiDelay();
+      } catch (error) {
+        console.warn(`[cleanup] Failed to delete tag ${tag.name}:`, error);
+      }
+    }
+  } catch (error) {
+    console.warn("[cleanup] Error fetching tags:", error);
+  }
+
+  // Cleanup test groups
+  try {
+    const groups = await client.getProjectGroups();
+    const testGroups = groups.filter(g => g.name && isTestResource(g.name));
+    console.log(`[cleanup] Found ${testGroups.length} test group(s) to delete`);
+
+    for (const group of testGroups) {
+      try {
+        await client.deleteProjectGroups([group.id]);
+        cleanedGroups++;
+        console.log(`[cleanup] Deleted group: ${group.name}`);
+        await apiDelay();
+      } catch (error) {
+        console.warn(`[cleanup] Failed to delete group ${group.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.warn("[cleanup] Error fetching groups:", error);
+  }
+
+  console.log(`[cleanup] Done! Cleaned up: ${cleanedTasks} tasks, ${cleanedProjects} projects, ${cleanedTags} tags, ${cleanedGroups} groups`);
 }
 
 /**
