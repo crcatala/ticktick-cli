@@ -169,8 +169,9 @@ export function createProjectCommand(): Command {
     .option("-c, --color <hex>", "New color (hex code)")
     .option("-f, --folder <id>", "Move project to folder")
     .option("-g, --group <id>", "Move project to folder (alias for --folder)")
-    .option("--clear-folder", "Remove project from its folder")
-    .option("--clear-group", "Remove project from its folder (alias for --clear-folder)")
+    .option("--no-folder", "Remove project from its folder")
+    .option("--clear-folder", "Remove project from its folder (alias for --no-folder)")
+    .option("--clear-group", "Remove project from its folder (alias for --no-folder)")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -190,11 +191,12 @@ export function createProjectCommand(): Command {
 
         // Support both --folder and --group (folder takes precedence)
         const newFolder = options.folder || options.group;
-        const clearFolder = options.clearFolder || options.clearGroup;
+        // Support --no-folder, --clear-folder, and --clear-group as aliases
+        const clearFolder = options.noFolder || options.clearFolder || options.clearGroup;
 
         // Validate: can't use both set and clear
         if (newFolder && clearFolder) {
-          printError("Cannot use both --folder/--group and --clear-folder/--clear-group");
+          printError("Cannot use both --folder/--group and --no-folder/--clear-folder");
           process.exit(1);
         }
 
