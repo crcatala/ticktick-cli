@@ -1,57 +1,43 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { colors } from "../../src/output/colors.js";
 
 const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
 
-async function importWithEnv(overrides: Record<string, string | undefined>) {
-  const original = {
-    NO_COLOR: process.env.NO_COLOR,
-    FORCE_COLOR: process.env.FORCE_COLOR,
-  };
+describe("colors", () => {
+  let originalNoColor: string | undefined;
+  let originalForceColor: string | undefined;
 
-  // Must delete undefined vars, not set them to "undefined" string
-  if (overrides.NO_COLOR === undefined) {
-    delete process.env.NO_COLOR;
-  } else {
-    process.env.NO_COLOR = overrides.NO_COLOR;
-  }
-  if (overrides.FORCE_COLOR === undefined) {
-    delete process.env.FORCE_COLOR;
-  } else {
-    process.env.FORCE_COLOR = overrides.FORCE_COLOR;
-  }
+  beforeEach(() => {
+    originalNoColor = process.env.NO_COLOR;
+    originalForceColor = process.env.FORCE_COLOR;
+  });
 
-  const moduleUrl = new URL(
-    `../../src/output/colors.js?cacheBust=${Date.now()}`,
-    import.meta.url
-  ).href;
-
-  try {
-    return await import(moduleUrl);
-  } finally {
-    // Restore original values (delete if was undefined)
-    if (original.NO_COLOR === undefined) {
+  afterEach(() => {
+    if (originalNoColor === undefined) {
       delete process.env.NO_COLOR;
     } else {
-      process.env.NO_COLOR = original.NO_COLOR;
+      process.env.NO_COLOR = originalNoColor;
     }
-    if (original.FORCE_COLOR === undefined) {
+    if (originalForceColor === undefined) {
       delete process.env.FORCE_COLOR;
     } else {
-      process.env.FORCE_COLOR = original.FORCE_COLOR;
+      process.env.FORCE_COLOR = originalForceColor;
     }
-  }
-}
+  });
 
-describe("colors", () => {
-  test("colors apply ANSI when supported", async () => {
-    const mod = await importWithEnv({ NO_COLOR: undefined, FORCE_COLOR: "1" });
-    const value = mod.colors.error("hello");
+  test("colors apply ANSI when supported", () => {
+    delete process.env.NO_COLOR;
+    process.env.FORCE_COLOR = "1";
+
+    const value = colors.error("hello");
     expect(value).not.toBe("hello");
     expect(stripAnsi(value)).toBe("hello");
   });
 
-  test("NO_COLOR disables colors", async () => {
-    const mod = await importWithEnv({ NO_COLOR: "1", FORCE_COLOR: undefined });
-    expect(stripAnsi(mod.colors.error("hi"))).toBe("hi");
+  test("NO_COLOR disables colors", () => {
+    process.env.NO_COLOR = "1";
+    delete process.env.FORCE_COLOR;
+
+    expect(colors.error("hi")).toBe("hi");
   });
 });
