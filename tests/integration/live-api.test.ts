@@ -465,6 +465,105 @@ describeLiveWithProject("Project Group API", ({ getClient, getTestProject }) => 
     const found = groups.find(g => g.id === group.id);
     expect(found).toBeDefined();
   });
+
+  it("creates project in a folder", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create a folder first
+    const folderName = generateTestName("folder");
+    const folder = await client.createProjectGroup({ name: folderName });
+    testProject.trackGroup(folder.id);
+
+    // Create a project in that folder
+    const projectName = generateTestName("project");
+    const project = await client.createProject({
+      name: projectName,
+      groupId: folder.id,
+    });
+
+    expect(project.id).toBeDefined();
+    expect(project.groupId).toBe(folder.id);
+
+    // Clean up the project
+    await client.deleteProjects([project.id]);
+  });
+
+  it("moves project to different folder", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create two folders
+    const folder1Name = generateTestName("folder1");
+    const folder1 = await client.createProjectGroup({ name: folder1Name });
+    testProject.trackGroup(folder1.id);
+
+    const folder2Name = generateTestName("folder2");
+    const folder2 = await client.createProjectGroup({ name: folder2Name });
+    testProject.trackGroup(folder2.id);
+
+    // Create a project in folder1
+    const projectName = generateTestName("project");
+    const project = await client.createProject({
+      name: projectName,
+      groupId: folder1.id,
+    });
+
+    expect(project.groupId).toBe(folder1.id);
+
+    // Move project to folder2
+    await client.updateProject({
+      id: project.id,
+      groupId: folder2.id,
+    });
+
+    // Verify the move by fetching projects
+    const projects = await client.getProjects();
+    const updatedProject = projects.find(p => p.id === project.id);
+
+    expect(updatedProject).toBeDefined();
+    expect(updatedProject?.groupId).toBe(folder2.id);
+
+    // Clean up the project
+    await client.deleteProjects([project.id]);
+  });
+
+  it("removes project from folder using NONE", async () => {
+    // The TickTick API uses "NONE" as a magic value to remove a project from a folder
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create a folder
+    const folderName = generateTestName("folder");
+    const folder = await client.createProjectGroup({ name: folderName });
+    testProject.trackGroup(folder.id);
+
+    // Create a project in that folder
+    const projectName = generateTestName("project");
+    const project = await client.createProject({
+      name: projectName,
+      groupId: folder.id,
+    });
+
+    expect(project.groupId).toBe(folder.id);
+
+    // Remove from folder by setting groupId to "NONE"
+    await client.updateProject({
+      id: project.id,
+      groupId: "NONE",
+    });
+
+    // Verify the project no longer has a folder
+    const projects = await client.getProjects();
+    const updatedProject = projects.find(p => p.id === project.id);
+
+    expect(updatedProject).toBeDefined();
+    // groupId should be null/undefined after removal with "NONE"
+    expect(updatedProject?.groupId).toBeFalsy();
+
+    // Clean up the project
+    await client.deleteProjects([project.id]);
+  });
 });
 
 // ============================================================

@@ -431,4 +431,149 @@ describe("TickTickClient", () => {
     expect(body.update[0].title).toBe("Updated title");
     expect(body.update[0].items).toBeUndefined();
   });
+
+  // ============================================================
+  // Project Group (Folder) Tests
+  // ============================================================
+
+  test("createProjectGroup generates ID and returns with etag", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/projectGroup`, async ({ request }) => {
+        capturedBody = await request.json();
+        const body = capturedBody as { add: Array<{ id: string; name: string }> };
+        return HttpResponse.json({ id2etag: { [body.add[0].id]: "group-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    const group = await client.createProjectGroup({ name: "My Folder" });
+
+    expect(group.id).toBeDefined();
+    expect(group.id).toMatch(/^[0-9a-f]{24}$/); // MongoDB ObjectId format
+    expect(group.name).toBe("My Folder");
+    expect(group.etag).toBe("group-etag");
+  });
+
+  test("updateProjectGroup sends update array", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/projectGroup`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "group-123": "updated-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateProjectGroup({ id: "group-123", name: "Renamed Folder" });
+
+    const body = capturedBody as { update: Array<{ id: string; name: string }> };
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0].id).toBe("group-123");
+    expect(body.update[0].name).toBe("Renamed Folder");
+  });
+
+  test("deleteProjectGroups sends delete array with IDs", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/projectGroup`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: {} });
+      })
+    );
+
+    const client = await createClient();
+    await client.deleteProjectGroups(["group-123", "group-456"]);
+
+    const body = capturedBody as { add: unknown[]; update: unknown[]; delete: string[] };
+    expect(body.delete).toEqual(["group-123", "group-456"]);
+    expect(body.add).toEqual([]);
+    expect(body.update).toEqual([]);
+  });
+
+  test("getProjectGroups extracts groups from batch response", async () => {
+    server.use(
+      http.get(`${API_BASE}/batch/check/0`, () => {
+        return HttpResponse.json({
+          projectGroups: [
+            { id: "group-1", name: "Folder A" },
+            { id: "group-2", name: "Folder B" },
+          ],
+          projectProfiles: [],
+          tags: [],
+          syncTaskBean: { update: [] },
+        });
+      })
+    );
+
+    const client = await createClient();
+    const groups = await client.getProjectGroups();
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].name).toBe("Folder A");
+    expect(groups[1].name).toBe("Folder B");
+  });
+
+  // ============================================================
+  // Project with Group/Folder Tests
+  // ============================================================
+
+  test("createProject with groupId sends groupId in request", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/project`, async ({ request }) => {
+        capturedBody = await request.json();
+        const body = capturedBody as { add: Array<{ id: string }> };
+        return HttpResponse.json({ id2etag: { [body.add[0].id]: "proj-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.createProject({ name: "My Project", groupId: "folder-123" });
+
+    const body = capturedBody as { add: Array<{ name: string; groupId: string }> };
+    expect(body.add[0].name).toBe("My Project");
+    expect(body.add[0].groupId).toBe("folder-123");
+  });
+
+  test("updateProject with groupId updates folder assignment", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/project`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "proj-123": "updated-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateProject({ id: "proj-123", groupId: "new-folder-456" });
+
+    const body = capturedBody as { update: Array<{ id: string; groupId: string }> };
+    expect(body.update[0].id).toBe("proj-123");
+    expect(body.update[0].groupId).toBe("new-folder-456");
+  });
+
+  test("updateProject with NONE groupId removes from folder", async () => {
+    // The TickTick API uses "NONE" as a magic value to remove a project from a folder
+    let capturedBody: unknown;
+
+    server.use(
+      http.post(`${API_BASE}/batch/project`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "proj-123": "updated-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    await client.updateProject({ id: "proj-123", groupId: "NONE" });
+
+    const body = capturedBody as { update: Array<{ id: string; groupId: string }> };
+    expect(body.update[0].id).toBe("proj-123");
+    expect(body.update[0].groupId).toBe("NONE");
+  });
 });

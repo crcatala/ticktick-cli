@@ -1,5 +1,8 @@
 /**
- * Project group commands.
+ * Project group (folder) commands.
+ * 
+ * In TickTick's API, "project groups" are what users see as "folders" in the UI.
+ * This module provides both `group` and `folder` command aliases.
  */
 import { Command } from "commander";
 import { getClient } from "../api/client.js";
@@ -10,17 +13,29 @@ import {
   printJson,
   printKeyValue,
   printGroupsTable,
+  printProjectsTableSimple,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";
 
-export function createGroupCommand(): Command {
-  const group = new Command("group").description("Manage project groups");
+/**
+ * Build the group/folder command with all subcommands.
+ * @param commandName - "group" or "folder"
+ */
+function buildGroupCommand(commandName: string): Command {
+  const isFolder = commandName === "folder";
+  const entityName = isFolder ? "folder" : "group";
+  const entityNameCap = isFolder ? "Folder" : "Group";
+  
+  const description = isFolder 
+    ? "Manage folders (project groups)" 
+    : "Manage project groups (folders)";
+  const group = new Command(commandName).description(description);
 
   // list command
   group
     .command("list")
-    .description("List all project groups")
+    .description(`List all ${entityName}s`)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, options) {
@@ -31,7 +46,7 @@ export function createGroupCommand(): Command {
         if (options.json) {
           printJson(groups);
         } else if (groups.length === 0) {
-          printInfo("No project groups found");
+          printInfo(`No ${entityName}s found`);
         } else {
           printGroupsTable(groups);
         }
@@ -41,7 +56,7 @@ export function createGroupCommand(): Command {
   // add command
   group
     .command("add <name>")
-    .description("Create a new project group")
+    .description(`Create a new ${entityName}`)
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, name: string, options) {
@@ -54,7 +69,7 @@ export function createGroupCommand(): Command {
         if (options.json) {
           printJson(createdGroup);
         } else {
-          printSuccess(`Created group: ${createdGroup.name}`);
+          printSuccess(`Created ${entityName}: ${createdGroup.name}`);
           printInfo(`ID: ${createdGroup.id}`);
         }
       })
@@ -63,7 +78,7 @@ export function createGroupCommand(): Command {
   // edit command
   group
     .command("edit <id>")
-    .description("Edit an existing project group")
+    .description(`Edit an existing ${entityName}`)
     .option("-n, --name <name>", "New name")
     .option("--json", "Output as JSON")
     .action(
@@ -78,7 +93,7 @@ export function createGroupCommand(): Command {
         );
 
         if (!foundGroup) {
-          printError(`Project group not found: ${id}`);
+          printError(`${entityNameCap} not found: ${id}`);
           process.exit(1);
         }
 
@@ -95,7 +110,7 @@ export function createGroupCommand(): Command {
         if (options.json) {
           printJson(updatedGroup);
         } else {
-          printSuccess(`Updated group: ${foundGroup.name}`);
+          printSuccess(`Updated ${entityName}: ${foundGroup.name}`);
         }
       })
     );
@@ -103,7 +118,7 @@ export function createGroupCommand(): Command {
   // delete command
   group
     .command("delete <id>")
-    .description("Delete a project group")
+    .description(`Delete a ${entityName}`)
     .option("-f, --force", "Skip confirmation")
     .action(
       handleError(async function (this: Command, id: string, options) {
@@ -117,14 +132,82 @@ export function createGroupCommand(): Command {
         );
 
         if (!foundGroup) {
-          printError(`Project group not found: ${id}`);
+          printError(`${entityNameCap} not found: ${id}`);
           process.exit(1);
         }
 
         await client.deleteProjectGroups([foundGroup.id]);
-        printSuccess(`Deleted group: ${foundGroup.name}`);
+        printSuccess(`Deleted ${entityName}: ${foundGroup.name}`);
+      })
+    );
+
+  // show command - display folder details and its projects
+  group
+    .command("show <id>")
+    .description(`Show ${entityName} details and its projects`)
+    .option("--json", "Output as JSON")
+    .action(
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
+
+        // Find the group
+        const groups = await client.getProjectGroups();
+        const foundGroup = groups.find(
+          (g) => g.id === id || g.id?.startsWith(id)
+        );
+
+        if (!foundGroup) {
+          printError(`Folder not found: ${id}`);
+          process.exit(1);
+        }
+
+        // Get projects in this folder
+        const allProjects = await client.getProjects();
+        const folderProjects = allProjects.filter(
+          (p) => p.groupId === foundGroup.id
+        );
+
+        if (options.json) {
+          printJson({
+            folder: foundGroup,
+            projects: folderProjects,
+          });
+        } else {
+          printKeyValue(
+            {
+              ID: foundGroup.id ?? "-",
+              Name: foundGroup.name ?? "-",
+              "Project Count": String(folderProjects.length),
+            },
+            ["ID", "Name", "Project Count"]
+          );
+
+          if (folderProjects.length > 0) {
+            console.log();
+            printInfo("Projects in this folder:");
+            printProjectsTableSimple(folderProjects);
+          } else {
+            console.log();
+            printInfo("No projects in this folder");
+          }
+        }
       })
     );
 
   return group;
+}
+
+/**
+ * Create the "group" command.
+ */
+export function createGroupCommand(): Command {
+  return buildGroupCommand("group");
+}
+
+/**
+ * Create the "folder" command (alias for group).
+ */
+export function createFolderCommand(): Command {
+  return buildGroupCommand("folder");
 }

@@ -8,6 +8,19 @@ import { formatDate } from "../utils/date.js";
 import type { Task, Project, Tag, ProjectGroup } from "../api/types.js";
 
 /**
+ * Build a map of group ID -> group name for folder lookups.
+ */
+function buildGroupMap(groups: ProjectGroup[]): Map<string, string> {
+  const groupMap = new Map<string, string>();
+  for (const g of groups) {
+    if (g.id && g.name) {
+      groupMap.set(g.id, g.name);
+    }
+  }
+  return groupMap;
+}
+
+/**
  * Render a table with headers and rows.
  */
 function renderTable(headers: string[], rows: string[][]): void {
@@ -57,8 +70,78 @@ export function printTasksTable(tasks: Task[]): void {
 
 /**
  * Print a table of projects.
+ * @param projects - Projects to display
+ * @param groups - Optional groups for folder name lookup
  */
-export function printProjectsTable(projects: Project[]): void {
+export function printProjectsTable(projects: Project[], groups?: ProjectGroup[]): void {
+  const groupMap = groups ? buildGroupMap(groups) : new Map<string, string>();
+
+  const headers = ["ID", "Name", "Folder", "Kind", "Color"];
+  const rows = projects.map((project) => {
+    const folderName = project.groupId ? (groupMap.get(project.groupId) ?? truncateId(project.groupId)) : "-";
+    return [
+      truncateId(project.id),
+      project.name ?? "-",
+      folderName,
+      project.kind ?? "TASK",
+      project.color ?? "-",
+    ];
+  });
+  renderTable(headers, rows);
+}
+
+/**
+ * Print projects grouped by folder.
+ * @param projects - Projects to display
+ * @param groups - Groups for folder names
+ */
+export function printProjectsByFolder(projects: Project[], groups: ProjectGroup[]): void {
+  const groupMap = buildGroupMap(groups);
+
+  // Group projects by folder
+  const byFolder = new Map<string | null, Project[]>();
+  for (const project of projects) {
+    const folderId = project.groupId ?? null;
+    if (!byFolder.has(folderId)) {
+      byFolder.set(folderId, []);
+    }
+    byFolder.get(folderId)!.push(project);
+  }
+
+  // Sort folders: named folders first (alphabetically), then "No Folder"
+  const folderIds = Array.from(byFolder.keys()).sort((a, b) => {
+    if (a === null) return 1;
+    if (b === null) return -1;
+    const nameA = groupMap.get(a) ?? a;
+    const nameB = groupMap.get(b) ?? b;
+    return nameA.localeCompare(nameB);
+  });
+
+  // Print each folder section
+  for (const folderId of folderIds) {
+    const folderProjects = byFolder.get(folderId)!;
+    const folderName = folderId ? (groupMap.get(folderId) ?? folderId) : "(No Folder)";
+    
+    console.log();
+    console.log(cyan(`📁 ${folderName}`));
+    console.log(dim("─".repeat(folderName.length + 3)));
+    
+    const headers = ["ID", "Name", "Kind", "Color"];
+    const rows = folderProjects.map((project) => [
+      truncateId(project.id),
+      project.name ?? "-",
+      project.kind ?? "TASK",
+      project.color ?? "-",
+    ]);
+    renderTable(headers, rows);
+  }
+}
+
+/**
+ * Print a simple table of projects (without folder column).
+ * Used when showing projects within a specific folder.
+ */
+export function printProjectsTableSimple(projects: Project[]): void {
   const headers = ["ID", "Name", "Kind", "Color"];
   const rows = projects.map((project) => [
     truncateId(project.id),
