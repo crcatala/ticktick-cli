@@ -263,9 +263,24 @@ describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
       ],
     });
 
-    // Verify reminders were added
-    const tasks = await client.getTasks();
-    const found = tasks.find((t) => t.id === task.id);
+    // Verify reminders were added (with retry for eventual consistency)
+    let found;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      const tasks = await client.getTasks();
+      found = tasks.find((t) => t.id === task.id);
+
+      if (found?.reminders && found.reminders.length > 0) {
+        break;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+      }
+    }
 
     expect(found?.reminders).toBeDefined();
     expect(found?.reminders?.length).toBeGreaterThan(0);
