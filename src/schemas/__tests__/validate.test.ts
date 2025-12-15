@@ -274,11 +274,69 @@ describe("ValidationError", () => {
       message: `Error ${i}`,
     }));
     const err = new ValidationError("Validation failed", issues);
-    
+
     const formatted = err.formatForUser();
     expect(formatted).toContain("field0");
     expect(formatted).toContain("field4");
     expect(formatted).not.toContain("field5");
     expect(formatted).toContain("5 more issues");
+  });
+
+  it("formatForUser handles empty issues array", () => {
+    const err = new ValidationError("Validation failed", [], "TestEntity");
+
+    const formatted = err.formatForUser();
+    expect(formatted).toContain("Validation failed");
+    expect(formatted).not.toContain("more issues");
+  });
+
+  it("formatForUser handles root-level errors with empty path", () => {
+    const issues = [
+      { code: "invalid_type" as const, expected: "string" as const, path: [], message: "Root level error" },
+    ];
+    const err = new ValidationError("Validation failed", issues);
+
+    const formatted = err.formatForUser();
+    expect(formatted).toContain("Root level error");
+    // Should not have a path prefix since path is empty
+    expect(formatted).not.toContain(": Root level error");
+  });
+
+  it("formatForUser handles very long error messages", () => {
+    const longMessage = "X".repeat(500);
+    const issues = [
+      { code: "invalid_type" as const, expected: "string" as const, path: ["field"], message: longMessage },
+    ];
+    const err = new ValidationError("Validation failed", issues);
+
+    const formatted = err.formatForUser();
+    // Should include the message (may be truncated by display, but formatForUser doesn't truncate)
+    expect(formatted).toContain(longMessage);
+  });
+
+  it("formatForUser works without entity type", () => {
+    const issues = [
+      { code: "invalid_type" as const, expected: "string" as const, path: ["field"], message: "Error" },
+    ];
+    const err = new ValidationError("Validation failed", issues);
+
+    const formatted = err.formatForUser();
+    expect(formatted).toContain("Validation failed");
+    expect(formatted).toContain("field: Error");
+  });
+
+  it("formatForUser handles deeply nested paths", () => {
+    const issues = [
+      {
+        code: "invalid_type" as const,
+        expected: "string" as const,
+        path: ["user", "profile", "address", "street", "name"],
+        message: "Expected string"
+      },
+    ];
+    const err = new ValidationError("Validation failed", issues);
+
+    const formatted = err.formatForUser();
+    expect(formatted).toContain("user.profile.address.street.name: Expected string");
   });
 });

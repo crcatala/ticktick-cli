@@ -60,5 +60,7 @@ program.addCommand(createTagCommand());
 program.addCommand(createUserCommand());
 program.addCommand(createSyncCommand());
 
-// Parse command line arguments
-program.parse(process.argv);
+// Parse command line arguments (only when run directly, not when imported)
+if (import.meta.main) {
+  program.parse(process.argv);
+}
