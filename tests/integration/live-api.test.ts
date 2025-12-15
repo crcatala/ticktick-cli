@@ -144,6 +144,178 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
 });
 
 // ============================================================
+// Reminder Tests
+// ============================================================
+
+describeLiveWithProject("Reminder API", ({ getClient, getTestProject }) => {
+  it("creates task with single reminder", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const title = generateTestName("task-reminder");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      reminders: [
+        {
+          id: "694044a2725bb97301a131ef", // Client-generated ID
+          trigger: "TRIGGER:-PT15M", // 15 minutes before
+        },
+      ],
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+    expect(task.title).toBe(title);
+
+    // Fetch the task to verify reminders persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.reminders).toBeDefined();
+    expect(found?.reminders?.length).toBeGreaterThan(0);
+    // API may replace ID, but trigger should match
+    expect(found?.reminders?.[0]?.trigger).toBe("TRIGGER:-PT15M");
+  });
+
+  it("creates task with multiple reminders", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const title = generateTestName("task-multi-reminder");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      reminders: [
+        {
+          id: "694044a2725bb97301a131e1",
+          trigger: "TRIGGER:PT0S", // On time
+        },
+        {
+          id: "694044a2725bb97301a131e2",
+          trigger: "TRIGGER:-PT60M", // 1 hour before
+        },
+        {
+          id: "694044a2725bb97301a131e3",
+          trigger: "TRIGGER:-PT1440M", // 1 day before
+        },
+      ],
+    });
+    testProject.trackTask(task.id);
+
+    expect(task.id).toBeDefined();
+
+    // Fetch and verify all reminders persisted
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.reminders).toBeDefined();
+    expect(found?.reminders?.length).toBe(3);
+
+    // Verify triggers match (order may vary)
+    const triggers = found?.reminders?.map((r) => r.trigger).sort();
+    expect(triggers).toContain("TRIGGER:PT0S");
+    expect(triggers).toContain("TRIGGER:-PT60M");
+    expect(triggers).toContain("TRIGGER:-PT1440M");
+  });
+
+  it("updates task to add reminders", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create task without reminders
+    const title = generateTestName("task");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+    });
+    testProject.trackTask(task.id);
+
+    // Update to add reminders
+    await client.updateTask({
+      id: task.id,
+      reminders: [
+        {
+          id: "694044a2725bb97301a131e4",
+          trigger: "TRIGGER:-PT30M", // 30 minutes before
+        },
+      ],
+    });
+
+    // Verify reminders were added
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found?.reminders).toBeDefined();
+    expect(found?.reminders?.length).toBeGreaterThan(0);
+    expect(found?.reminders?.[0]?.trigger).toBe("TRIGGER:-PT30M");
+  });
+
+  it("updates task to clear reminders", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    // Create task with reminders
+    const title = generateTestName("task-clear-reminder");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      reminders: [
+        {
+          id: "694044a2725bb97301a131e5",
+          trigger: "TRIGGER:-PT15M",
+        },
+      ],
+    });
+    testProject.trackTask(task.id);
+
+    // Update to clear reminders
+    await client.updateTask({
+      id: task.id,
+      reminders: [],
+    });
+
+    // Verify reminders were cleared
+    const tasks = await client.getTasks();
+    const found = tasks.find((t) => t.id === task.id);
+
+    expect(found).toBeDefined();
+    expect(found?.reminders?.length ?? 0).toBe(0);
+  });
+
+  it("verifies reminders persist across fetch operations", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+
+    const title = generateTestName("task-persist");
+    const task = await client.createTask({
+      title,
+      projectId: testProject.getProjectId(),
+      reminders: [
+        {
+          id: "694044a2725bb97301a131e6",
+          trigger: "TRIGGER:-PT120M", // 2 hours before
+        },
+      ],
+    });
+    testProject.trackTask(task.id);
+
+    // Fetch multiple times to ensure persistence
+    for (let i = 0; i < 2; i++) {
+      const tasks = await client.getTasks();
+      const found = tasks.find((t) => t.id === task.id);
+
+      expect(found).toBeDefined();
+      expect(found?.reminders).toBeDefined();
+      expect(found?.reminders?.length).toBeGreaterThan(0);
+      expect(found?.reminders?.[0]?.trigger).toBe("TRIGGER:-PT120M");
+    }
+  });
+});
+
+// ============================================================
 // Project Management Tests
 // ============================================================
 
