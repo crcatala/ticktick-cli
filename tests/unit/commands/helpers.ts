@@ -5,10 +5,8 @@
  */
 import type { Task, Project, Tag } from "../../../src/api/types.js";
 
-/**
- * Strip ANSI escape codes from a string.
- */
-export const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, "");
+// Re-export shared test utilities
+export { stripAnsi } from "../../utils/test-helpers.js";
 
 /**
  * Create a mock task for testing.
@@ -53,39 +51,3 @@ export function createMockTag(overrides: Partial<Tag> = {}): Tag {
   };
 }
 
-/**
- * Output capture helper for testing print functions.
- */
-export interface OutputCapture {
-  logs: string[];
-  errors: string[];
-  restore: () => void;
-}
-
-/**
- * Capture console.log and console.error output.
- */
-export function captureOutput(): OutputCapture {
-  const logs: string[] = [];
-  const errors: string[] = [];
-
-  const originalLog = console.log;
-  const originalError = console.error;
-
-  console.log = (...args: unknown[]) => {
-    logs.push(args.map(String).join(" "));
-  };
-
-  console.error = (...args: unknown[]) => {
-    errors.push(args.map(String).join(" "));
-  };
-
-  return {
-    logs,
-    errors,
-    restore: () => {
-      console.log = originalLog;
-      console.error = originalError;
-    },
-  };
-}

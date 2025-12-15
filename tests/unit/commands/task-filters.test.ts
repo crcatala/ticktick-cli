@@ -1,65 +1,20 @@
 /**
- * Unit tests for task command filtering and parsing logic.
+ * Unit tests for task filtering and lookup utilities.
  *
- * These tests focus on the pure logic functions used by task commands,
- * which can be tested without mocking authentication.
+ * Tests the actual implementations from src/commands/task-filters.ts
+ * and src/utils/priority.ts
  */
 import { describe, it, expect } from "bun:test";
-import { createMockTask, stripAnsi } from "./helpers.js";
-import type { Task } from "../../../src/api/types.js";
+import {
+  filterByProject,
+  filterByTag,
+  filterByPriority,
+  findTaskById,
+} from "../../../src/commands/task-filters.js";
+import { parsePriority, PRIORITY_MAP } from "../../../src/utils/priority.js";
+import { createMockTask } from "./helpers.js";
 
-/**
- * Filter tasks by project ID (extracted from task.ts logic)
- */
-function filterByProject(tasks: Task[], projectId: string): Task[] {
-  return tasks.filter((t) => t.projectId === projectId);
-}
-
-/**
- * Filter tasks by tag name (extracted from task.ts logic)
- */
-function filterByTag(tasks: Task[], tagName: string): Task[] {
-  return tasks.filter((t) => t.tags?.includes(tagName));
-}
-
-/**
- * Filter tasks by priority (extracted from task.ts logic)
- */
-function filterByPriority(tasks: Task[], priorityName: string): Task[] {
-  const priorityMap: Record<string, number> = {
-    high: 5,
-    medium: 3,
-    low: 1,
-    none: 0,
-  };
-  const targetPriority = priorityMap[priorityName.toLowerCase()];
-  if (targetPriority === undefined) {
-    return tasks;
-  }
-  return tasks.filter((t) => t.priority === targetPriority);
-}
-
-/**
- * Convert priority string to number (extracted from task.ts logic)
- */
-function parsePriority(priorityName: string): number {
-  const priorityMap: Record<string, number> = {
-    high: 5,
-    medium: 3,
-    low: 1,
-    none: 0,
-  };
-  return priorityMap[priorityName.toLowerCase()] ?? 0;
-}
-
-/**
- * Find task by ID or ID prefix (extracted from task.ts logic)
- */
-function findTaskById(tasks: Task[], idOrPrefix: string): Task | undefined {
-  return tasks.find((t) => t.id === idOrPrefix || t.id?.startsWith(idOrPrefix));
-}
-
-describe("task filtering logic", () => {
+describe("Task Filters", () => {
   describe("filterByProject", () => {
     it("returns only tasks with matching project ID", () => {
       const tasks = [
@@ -83,6 +38,23 @@ describe("task filtering logic", () => {
       const filtered = filterByProject(tasks, "proj-nonexistent");
 
       expect(filtered).toHaveLength(0);
+    });
+
+    it("handles empty input array", () => {
+      const filtered = filterByProject([], "proj-1");
+      expect(filtered).toEqual([]);
+    });
+
+    it("handles tasks with undefined projectId", () => {
+      const tasks = [
+        createMockTask({ id: "1", projectId: undefined }),
+        createMockTask({ id: "2", projectId: "proj-1" }),
+      ];
+
+      const filtered = filterByProject(tasks, "proj-1");
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe("2");
     });
   });
 
@@ -108,6 +80,23 @@ describe("task filtering logic", () => {
 
       const filtered = filterByTag(tasks, "work");
 
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe("2");
+    });
+
+    it("handles empty input array", () => {
+      const filtered = filterByTag([], "work");
+      expect(filtered).toEqual([]);
+    });
+
+    it("is case-sensitive for tag matching", () => {
+      const tasks = [
+        createMockTask({ id: "1", tags: ["Work"] }),
+        createMockTask({ id: "2", tags: ["work"] }),
+      ];
+
+      // Tag matching should be case-sensitive
+      const filtered = filterByTag(tasks, "work");
       expect(filtered).toHaveLength(1);
       expect(filtered[0].id).toBe("2");
     });
@@ -171,6 +160,35 @@ describe("task filtering logic", () => {
 
       expect(filterByPriority(tasks, "HIGH")).toHaveLength(1);
       expect(filterByPriority(tasks, "High")).toHaveLength(1);
+      expect(filterByPriority(tasks, "hIgH")).toHaveLength(1);
+    });
+
+    it("returns all tasks for unknown priority", () => {
+      const tasks = [
+        createMockTask({ id: "1", priority: 5 }),
+        createMockTask({ id: "2", priority: 3 }),
+      ];
+
+      const filtered = filterByPriority(tasks, "invalid");
+
+      expect(filtered).toHaveLength(2);
+    });
+
+    it("handles empty input array", () => {
+      const filtered = filterByPriority([], "high");
+      expect(filtered).toEqual([]);
+    });
+
+    it("handles tasks with undefined priority", () => {
+      const tasks = [
+        createMockTask({ id: "1", priority: undefined }),
+        createMockTask({ id: "2", priority: 0 }),
+      ];
+
+      const filtered = filterByPriority(tasks, "none");
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe("2");
     });
   });
 
@@ -214,68 +232,126 @@ describe("task filtering logic", () => {
       expect(filtered).toHaveLength(1);
       expect(filtered[0].title).toBe("Match All");
     });
+
+    it("returns empty when filters eliminate all tasks", () => {
+      const tasks = [
+        createMockTask({ id: "1", projectId: "proj-1", tags: ["work"] }),
+        createMockTask({ id: "2", projectId: "proj-2", tags: ["urgent"] }),
+      ];
+
+      let filtered = filterByProject(tasks, "proj-1");
+      filtered = filterByTag(filtered, "urgent");
+
+      expect(filtered).toHaveLength(0);
+    });
   });
 });
 
-describe("priority parsing", () => {
-  it("converts priority strings to numbers", () => {
-    expect(parsePriority("high")).toBe(5);
-    expect(parsePriority("medium")).toBe(3);
-    expect(parsePriority("low")).toBe(1);
-    expect(parsePriority("none")).toBe(0);
+describe("Priority Utilities", () => {
+  describe("PRIORITY_MAP", () => {
+    it("contains expected priority values", () => {
+      expect(PRIORITY_MAP.high).toBe(5);
+      expect(PRIORITY_MAP.medium).toBe(3);
+      expect(PRIORITY_MAP.low).toBe(1);
+      expect(PRIORITY_MAP.none).toBe(0);
+    });
+
+    it("has exactly 4 priority levels", () => {
+      expect(Object.keys(PRIORITY_MAP)).toHaveLength(4);
+    });
   });
 
-  it("handles case-insensitivity", () => {
-    expect(parsePriority("HIGH")).toBe(5);
-    expect(parsePriority("Medium")).toBe(3);
-    expect(parsePriority("LOW")).toBe(1);
-  });
+  describe("parsePriority", () => {
+    it("converts priority strings to numbers", () => {
+      expect(parsePriority("high")).toBe(5);
+      expect(parsePriority("medium")).toBe(3);
+      expect(parsePriority("low")).toBe(1);
+      expect(parsePriority("none")).toBe(0);
+    });
 
-  it("returns 0 for unknown priority", () => {
-    expect(parsePriority("invalid")).toBe(0);
-    expect(parsePriority("")).toBe(0);
+    it("handles case-insensitivity", () => {
+      expect(parsePriority("HIGH")).toBe(5);
+      expect(parsePriority("Medium")).toBe(3);
+      expect(parsePriority("LOW")).toBe(1);
+      expect(parsePriority("NONE")).toBe(0);
+    });
+
+    it("returns 0 for unknown priority", () => {
+      expect(parsePriority("invalid")).toBe(0);
+      expect(parsePriority("")).toBe(0);
+      expect(parsePriority("critical")).toBe(0);
+    });
   });
 });
 
-describe("task ID lookup", () => {
-  it("finds task by exact ID", () => {
-    const tasks = [
-      createMockTask({ id: "task-abc-123", title: "Task A" }),
-      createMockTask({ id: "task-def-456", title: "Task B" }),
-    ];
+describe("Task ID Lookup", () => {
+  describe("findTaskById", () => {
+    it("finds task by exact ID", () => {
+      const tasks = [
+        createMockTask({ id: "task-abc-123", title: "Task A" }),
+        createMockTask({ id: "task-def-456", title: "Task B" }),
+      ];
 
-    const found = findTaskById(tasks, "task-abc-123");
+      const found = findTaskById(tasks, "task-abc-123");
 
-    expect(found?.title).toBe("Task A");
-  });
+      expect(found?.title).toBe("Task A");
+    });
 
-  it("finds task by ID prefix", () => {
-    const tasks = [
-      createMockTask({ id: "task-abc-123-full-id", title: "Task A" }),
-      createMockTask({ id: "task-def-456-full-id", title: "Task B" }),
-    ];
+    it("finds task by ID prefix", () => {
+      const tasks = [
+        createMockTask({ id: "task-abc-123-full-id", title: "Task A" }),
+        createMockTask({ id: "task-def-456-full-id", title: "Task B" }),
+      ];
 
-    const found = findTaskById(tasks, "task-abc");
+      const found = findTaskById(tasks, "task-abc");
 
-    expect(found?.title).toBe("Task A");
-  });
+      expect(found?.title).toBe("Task A");
+    });
 
-  it("returns undefined when task not found", () => {
-    const tasks = [createMockTask({ id: "task-123", title: "Task A" })];
+    it("returns undefined when task not found", () => {
+      const tasks = [createMockTask({ id: "task-123", title: "Task A" })];
 
-    const found = findTaskById(tasks, "nonexistent");
+      const found = findTaskById(tasks, "nonexistent");
 
-    expect(found).toBeUndefined();
-  });
+      expect(found).toBeUndefined();
+    });
 
-  it("prefers exact match over prefix match", () => {
-    const tasks = [
-      createMockTask({ id: "task", title: "Exact" }),
-      createMockTask({ id: "task-extended", title: "Extended" }),
-    ];
+    it("prefers exact match over prefix match", () => {
+      const tasks = [
+        createMockTask({ id: "task", title: "Exact" }),
+        createMockTask({ id: "task-extended", title: "Extended" }),
+      ];
 
-    const found = findTaskById(tasks, "task");
+      const found = findTaskById(tasks, "task");
 
-    expect(found?.title).toBe("Exact");
+      expect(found?.title).toBe("Exact");
+    });
+
+    it("handles empty array", () => {
+      const found = findTaskById([], "task-123");
+      expect(found).toBeUndefined();
+    });
+
+    it("handles tasks with undefined id", () => {
+      const tasks = [
+        createMockTask({ id: undefined, title: "No ID" }),
+        createMockTask({ id: "task-123", title: "Has ID" }),
+      ];
+
+      const found = findTaskById(tasks, "task-123");
+      expect(found?.title).toBe("Has ID");
+    });
+
+    it("returns first match when multiple tasks have same prefix", () => {
+      const tasks = [
+        createMockTask({ id: "task-a-111", title: "First" }),
+        createMockTask({ id: "task-a-222", title: "Second" }),
+      ];
+
+      const found = findTaskById(tasks, "task-a");
+
+      // Should return the first match
+      expect(found?.title).toBe("First");
+    });
   });
 });
