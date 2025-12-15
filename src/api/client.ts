@@ -580,27 +580,27 @@ export class TickTickClient {
    * Uses the /batch/order endpoint with orderByType payload structure.
    */
   async deleteProjects(projectIds: string[]): Promise<void> {
-    const deletes = projectIds.map((id) => ({ id }));
-
-    // The TickTick web app uses /batch/order for project deletion
-    await this.request<unknown>(
-      ENDPOINTS.BATCH_ORDER,
+    // Uses same format as groups: { add: [], update: [], delete: ["id1", "id2"] }
+    const data = await this.request<unknown>(
+      ENDPOINTS.BATCH_PROJECT,
       {
         method: "POST",
-        body: {
-          orderByType: {
-            projectPinned: {
-              all: {
-                changed: [],
-                deleted: deletes,
-              },
-            },
-          },
-        },
+        body: { add: [], update: [], delete: projectIds },
       }
     );
-    // Note: This endpoint doesn't return id2error, so we can't check for errors
-    // the same way. If the request succeeds (no exception), assume success.
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    if (response.id2error && Object.keys(response.id2error).length > 0) {
+      const errorMessages = Object.entries(response.id2error).map(
+        ([id, msg]) => `${id}: ${msg}`
+      );
+      throw new ClientError(`Failed to delete projects: ${errorMessages.join("; ")}`);
+    }
   }
 
   // ============================================================
