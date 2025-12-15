@@ -9,3 +9,4 @@ export { createTagCommand } from "./tag.js";
 export { createUserCommand } from "./user.js";
 export { createSyncCommand } from "./sync.js";
 export { createTrashCommand } from "./trash.js";
+export { createChecklistCommand } from "./checklist.js";

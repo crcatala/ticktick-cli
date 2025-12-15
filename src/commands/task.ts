@@ -3,7 +3,7 @@
  */
 import { Command } from "commander";
 import { getClient } from "../api/client.js";
-import type { Task } from "../api/types.js";
+import type { Task, ChecklistItem } from "../api/types.js";
 import {
   printError,
   printSuccess,
@@ -80,24 +80,41 @@ export function createTaskCommand(): Command {
           process.exit(1);
         }
 
+        // Get full task details including checklist items
+        let fullTask = foundTask;
+        if (foundTask.projectId) {
+          fullTask = await client.getTask(foundTask.id, foundTask.projectId);
+        }
+
         if (options.json) {
-          printJson(foundTask);
+          printJson(fullTask);
         } else {
+          // Format checklist summary
+          const items: ChecklistItem[] = fullTask.items ?? [];
+          let checklistDisplay = "-";
+          if (items.length > 0) {
+            const completed = items.filter(
+              (i: ChecklistItem) => i.status === 1
+            ).length;
+            checklistDisplay = `${completed}/${items.length} completed`;
+          }
+
           printKeyValue(
             {
-              ID: foundTask.id ?? "-",
-              Title: foundTask.title ?? "-",
-              Content: foundTask.content ?? "-",
-              Project: truncateId(foundTask.projectId),
-              Priority: formatPriority(foundTask.priority).replace(
+              ID: fullTask.id ?? "-",
+              Title: fullTask.title ?? "-",
+              Content: fullTask.content ?? "-",
+              Project: truncateId(fullTask.projectId),
+              Priority: formatPriority(fullTask.priority).replace(
                 /\x1b\[[0-9;]*m/g,
                 ""
               ),
-              "Due Date": formatDate(foundTask.dueDate),
-              Tags: foundTask.tags?.join(", ") ?? "-",
-              Status: foundTask.status === 2 ? "Completed" : "Active",
-              Created: formatDate(foundTask.createdTime),
-              Modified: formatDate(foundTask.modifiedTime),
+              "Due Date": formatDate(fullTask.dueDate),
+              Tags: fullTask.tags?.join(", ") ?? "-",
+              Checklist: checklistDisplay,
+              Status: fullTask.status === 2 ? "Completed" : "Active",
+              Created: formatDate(fullTask.createdTime),
+              Modified: formatDate(fullTask.modifiedTime),
             },
             [
               "ID",
@@ -107,11 +124,25 @@ export function createTaskCommand(): Command {
               "Priority",
               "Due Date",
               "Tags",
+              "Checklist",
               "Status",
               "Created",
               "Modified",
             ]
           );
+
+          // Display checklist items if present
+          if (items.length > 0) {
+            console.log("");
+            const sorted = [...items].sort(
+              (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+            );
+            for (const item of sorted) {
+              const checkbox = item.status === 1 ? "☑" : "☐";
+              const shortId = item.id?.slice(0, 8) ?? "?";
+              console.log(`  ${checkbox} [${shortId}] ${item.title ?? "(untitled)"}`);
+            }
+          }
         }
       })
     );
