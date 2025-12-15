@@ -79,6 +79,32 @@ export async function apiDelay(ms: number = DEFAULT_API_DELAY): Promise<void> {
   await sleep(ms);
 }
 
+/** Maximum number of retries for cleanup operations */
+const CLEANUP_MAX_RETRIES = 3;
+
+/**
+ * Retry an async operation with delays between attempts.
+ * Used for cleanup operations that may fail transiently.
+ */
+async function retryOperation<T>(
+  operation: () => Promise<T>,
+  description: string,
+  maxRetries: number = CLEANUP_MAX_RETRIES
+): Promise<T | null> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (attempt === maxRetries) {
+        console.warn(`[cleanup] Failed ${description} after ${maxRetries} attempts:`, error);
+        return null;
+      }
+      await apiDelay();
+    }
+  }
+  return null;
+}
+
 /**
  * Create a throttled version of the TickTick client.
  * 
@@ -187,49 +213,40 @@ export class TestProject {
    * Cleanup all test resources.
    */
   async teardown(): Promise<void> {
-    const errors: Error[] = [];
-
-    // Delete tracked tasks
+    // Delete tracked tasks (with retry)
     if (this.createdTaskIds.length > 0 && this.project) {
-      try {
-        await this.client.deleteTasks(this.createdTaskIds, this.project.id);
-        await apiDelay();
-      } catch (error) {
-        errors.push(error instanceof Error ? error : new Error(String(error)));
-      }
+      await retryOperation(
+        () => this.client.deleteTasks(this.createdTaskIds, this.project!.id),
+        `deleting ${this.createdTaskIds.length} tracked tasks`
+      );
+      await apiDelay();
     }
 
-    // Delete tracked tags
+    // Delete tracked tags (with retry for each)
     for (const tagName of this.createdTagNames) {
-      try {
-        await this.client.deleteTag(tagName);
-        await apiDelay();
-      } catch (error) {
-        // Ignore errors for tags that may have already been deleted
-        if (!String(error).includes("404")) {
-          errors.push(error instanceof Error ? error : new Error(String(error)));
-        }
-      }
+      await retryOperation(
+        () => this.client.deleteTag(tagName),
+        `deleting tag "${tagName}"`
+      );
+      await apiDelay();
     }
 
-    // Delete tracked groups
+    // Delete tracked groups (with retry)
     if (this.createdGroupIds.length > 0) {
-      try {
-        await this.client.deleteProjectGroups(this.createdGroupIds);
-        await apiDelay();
-      } catch (error) {
-        errors.push(error instanceof Error ? error : new Error(String(error)));
-      }
+      await retryOperation(
+        () => this.client.deleteProjectGroups(this.createdGroupIds),
+        `deleting ${this.createdGroupIds.length} tracked groups`
+      );
+      await apiDelay();
     }
 
-    // Delete the test project (this should also delete tasks within it)
+    // Delete the test project (with retry) - this should also delete tasks within it
     if (this.project) {
-      try {
-        await this.client.deleteProjects([this.project.id]);
-        await apiDelay();
-      } catch (error) {
-        errors.push(error instanceof Error ? error : new Error(String(error)));
-      }
+      await retryOperation(
+        () => this.client.deleteProjects([this.project!.id]),
+        `deleting test project "${this.project.name}"`
+      );
+      await apiDelay();
     }
 
     // Clear tracking
@@ -237,11 +254,6 @@ export class TestProject {
     this.createdTagNames = [];
     this.createdGroupIds = [];
     this.project = null;
-
-    // Report any cleanup errors
-    if (errors.length > 0) {
-      console.warn(`[live-test] Cleanup had ${errors.length} error(s):`, errors.map(e => e.message));
-    }
   }
 
   /**
@@ -268,17 +280,16 @@ export class TestProject {
       );
 
       for (const task of orphanedTasks) {
-        try {
-          // Include projectId in delete request (skip if no projectId)
-          if (task.projectId) {
-            await this.client.deleteTasks([task.id], task.projectId);
-            cleanedTasks++;
-            await apiDelay();
-          } else {
-            console.warn(`[live-test] Cannot delete orphaned task ${task.id}: no projectId`);
-          }
-        } catch (error) {
-          console.warn(`[live-test] Failed to delete orphaned task ${task.id}:`, error);
+        // Include projectId in delete request (skip if no projectId)
+        if (task.projectId) {
+          const result = await retryOperation(
+            () => this.client.deleteTasks([task.id], task.projectId!),
+            `deleting orphaned task ${task.id}`
+          );
+          if (result !== null) cleanedTasks++;
+          await apiDelay();
+        } else {
+          console.warn(`[live-test] Cannot delete orphaned task ${task.id}: no projectId`);
         }
       }
 
@@ -288,15 +299,13 @@ export class TestProject {
       }
 
       // Re-fetch projects and cleanup orphaned ones
-
       for (const project of orphanedProjects) {
-        try {
-          await this.client.deleteProjects([project.id]);
-          cleanedProjects++;
-          await apiDelay();
-        } catch (error) {
-          console.warn(`[live-test] Failed to delete orphaned project ${project.id}:`, error);
-        }
+        const result = await retryOperation(
+          () => this.client.deleteProjects([project.id]),
+          `deleting orphaned project ${project.id}`
+        );
+        if (result !== null) cleanedProjects++;
+        await apiDelay();
       }
 
       // Cleanup orphaned tags one at a time
@@ -304,13 +313,12 @@ export class TestProject {
       const orphanedTags = tags.filter(t => isTestResource(t.name));
 
       for (const tag of orphanedTags) {
-        try {
-          await this.client.deleteTag(tag.name);
-          cleanedTags++;
-          await apiDelay();
-        } catch (error) {
-          console.warn(`[live-test] Failed to delete orphaned tag ${tag.name}:`, error);
-        }
+        const result = await retryOperation(
+          () => this.client.deleteTag(tag.name),
+          `deleting orphaned tag ${tag.name}`
+        );
+        if (result !== null) cleanedTags++;
+        await apiDelay();
       }
 
       // Cleanup orphaned groups one at a time
@@ -318,22 +326,20 @@ export class TestProject {
       const orphanedGroups = groups.filter(g => g.name && isTestResource(g.name));
 
       for (const group of orphanedGroups) {
-        try {
-          await this.client.deleteProjectGroups([group.id]);
-          cleanedGroups++;
-          await apiDelay();
-        } catch (error) {
-          console.warn(`[live-test] Failed to delete orphaned group ${group.id}:`, error);
-        }
+        const result = await retryOperation(
+          () => this.client.deleteProjectGroups([group.id]),
+          `deleting orphaned group ${group.id}`
+        );
+        if (result !== null) cleanedGroups++;
+        await apiDelay();
       }
 
       // Empty trash to permanently delete all trashed items
-      try {
-        await this.client.emptyTrash();
-        await apiDelay();
-      } catch (error) {
-        console.warn("[live-test] Failed to empty trash:", error);
-      }
+      await retryOperation(
+        () => this.client.emptyTrash(),
+        "emptying trash"
+      );
+      await apiDelay();
 
       // Log summary
       const total = cleanedTasks + cleanedProjects + cleanedTags + cleanedGroups;
@@ -405,15 +411,16 @@ export async function cleanupAllTestResources(): Promise<void> {
         continue;
       }
       for (const taskId of taskIds) {
-        try {
-          const task = testTasks.find(t => t.id === taskId);
-          await client.deleteTasks([taskId], projectId);
+        const task = testTasks.find(t => t.id === taskId);
+        const result = await retryOperation(
+          () => client.deleteTasks([taskId], projectId),
+          `deleting task ${taskId}`
+        );
+        if (result !== null) {
           cleanedTasks++;
           console.log(`[cleanup] Deleted task: ${task?.title || taskId}`);
-          await apiDelay();
-        } catch (error) {
-          console.warn(`[cleanup] Failed to delete task ${taskId}:`, error);
         }
+        await apiDelay();
       }
     }
   } catch (error) {
@@ -431,14 +438,15 @@ export async function cleanupAllTestResources(): Promise<void> {
     console.log(`[cleanup] Found ${testProjects.length} test project(s) to delete`);
 
     for (const project of testProjects) {
-      try {
-        await client.deleteProjects([project.id]);
+      const result = await retryOperation(
+        () => client.deleteProjects([project.id]),
+        `deleting project ${project.id}`
+      );
+      if (result !== null) {
         cleanedProjects++;
         console.log(`[cleanup] Deleted project: ${project.name}`);
-        await apiDelay();
-      } catch (error) {
-        console.warn(`[cleanup] Failed to delete project ${project.id}:`, error);
       }
+      await apiDelay();
     }
   } catch (error) {
     console.warn("[cleanup] Error fetching projects:", error);
@@ -451,14 +459,15 @@ export async function cleanupAllTestResources(): Promise<void> {
     console.log(`[cleanup] Found ${testTags.length} test tag(s) to delete`);
 
     for (const tag of testTags) {
-      try {
-        await client.deleteTag(tag.name);
+      const result = await retryOperation(
+        () => client.deleteTag(tag.name),
+        `deleting tag ${tag.name}`
+      );
+      if (result !== null) {
         cleanedTags++;
         console.log(`[cleanup] Deleted tag: ${tag.name}`);
-        await apiDelay();
-      } catch (error) {
-        console.warn(`[cleanup] Failed to delete tag ${tag.name}:`, error);
       }
+      await apiDelay();
     }
   } catch (error) {
     console.warn("[cleanup] Error fetching tags:", error);
@@ -471,27 +480,27 @@ export async function cleanupAllTestResources(): Promise<void> {
     console.log(`[cleanup] Found ${testGroups.length} test group(s) to delete`);
 
     for (const group of testGroups) {
-      try {
-        await client.deleteProjectGroups([group.id]);
+      const result = await retryOperation(
+        () => client.deleteProjectGroups([group.id]),
+        `deleting group ${group.id}`
+      );
+      if (result !== null) {
         cleanedGroups++;
         console.log(`[cleanup] Deleted group: ${group.name}`);
-        await apiDelay();
-      } catch (error) {
-        console.warn(`[cleanup] Failed to delete group ${group.id}:`, error);
       }
+      await apiDelay();
     }
   } catch (error) {
     console.warn("[cleanup] Error fetching groups:", error);
   }
 
   // Empty trash to permanently delete all trashed items
-  try {
-    console.log("[cleanup] Emptying trash...");
-    await client.emptyTrash();
-    await apiDelay();
-  } catch (error) {
-    console.warn("[cleanup] Failed to empty trash:", error);
-  }
+  console.log("[cleanup] Emptying trash...");
+  await retryOperation(
+    () => client.emptyTrash(),
+    "emptying trash"
+  );
+  await apiDelay();
 
   console.log(`[cleanup] Done! Cleaned up: ${cleanedTasks} tasks, ${cleanedProjects} projects, ${cleanedTags} tags, ${cleanedGroups} groups`);
 }

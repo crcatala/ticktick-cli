@@ -802,6 +802,7 @@ export class TickTickClient {
 
   /**
    * Rename a tag.
+   * Note: Uses PUT method per TickTick API (not POST).
    */
   async renameTag(oldName: string, newName: string): Promise<void> {
     await this.request(ENDPOINTS.TAG_RENAME, {

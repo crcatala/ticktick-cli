@@ -29,7 +29,9 @@ export function createTrashCommand(): Command {
 
           const confirmed = await new Promise<boolean>((resolve) => {
             rl.question(
-              "This will permanently delete all items in trash. Continue? (y/N) ",
+              "⚠️  WARNING: This will PERMANENTLY delete ALL trashed items.\n" +
+              "   This action CANNOT be undone.\n" +
+              "   Continue? (y/N) ",
               (answer) => {
                 rl.close();
                 resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
