@@ -21,6 +21,9 @@ export type {
   LoginResponse,
 } from "../schemas/index.js";
 
+// Import Reminder type for use within this file
+import type { Reminder } from "../schemas/index.js";
+
 // ============================================================
 // Input types for create/update operations
 // These are used for request bodies, not responses
