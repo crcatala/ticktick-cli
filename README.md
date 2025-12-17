@@ -4,9 +4,51 @@ A command-line interface for [TickTick](https://ticktick.com) task management, b
 
 ## Installation
 
-### Download Binary
+### Quick Install (Recommended)
 
-Download the pre-built binary for your platform from the [releases page](https://github.com/crcatala/ticktick-cli/releases).
+**npm** (requires Node.js 20+):
+```bash
+npm install -g ticktick-cli
+```
+
+**Homebrew** (coming soon):
+```bash
+# brew install crcatala/tap/ticktick-cli
+```
+
+**Shell script** (downloads binary):
+```bash
+curl -fsSL https://raw.githubusercontent.com/crcatala/ticktick-cli/main/scripts/install.sh | bash
+```
+
+Options for the shell installer:
+```bash
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/crcatala/ticktick-cli/main/scripts/install.sh | VERSION=v0.1.0 bash
+
+# Install to custom directory
+curl -fsSL https://raw.githubusercontent.com/crcatala/ticktick-cli/main/scripts/install.sh | INSTALL_DIR=/opt/bin bash
+```
+
+### Manual Download
+
+Download the pre-built binary for your platform from the [releases page](https://github.com/crcatala/ticktick-cli/releases):
+
+| Platform | Archive |
+|----------|---------|
+| macOS (Apple Silicon) | `ticktick-darwin-arm64.tar.gz` |
+| macOS (Intel) | `ticktick-darwin-x64.tar.gz` |
+| Linux x64 | `ticktick-linux-x64.tar.gz` |
+| Linux x64 (Alpine/musl) | `ticktick-linux-x64-musl.tar.gz` |
+| Linux ARM64 | `ticktick-linux-arm64.tar.gz` |
+| Linux ARM64 (Alpine/musl) | `ticktick-linux-arm64-musl.tar.gz` |
+| Windows x64 | `ticktick-windows-x64.zip` |
+
+Extract and move the binary to a directory in your PATH:
+```bash
+tar -xzf ticktick-*.tar.gz
+mv ticktick ~/.local/bin/  # or /usr/local/bin/
+```
 
 ### Build from Source
 
