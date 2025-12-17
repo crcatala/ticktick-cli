@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install tsgo
+        run: npm install -g @typescript/native-preview
+
       - name: Build JS (for npm)
         run: bun run build
 
