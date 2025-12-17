@@ -55,16 +55,6 @@ The compiled binary will be at `./dist/ticktick`.
 
 </details>
 
-### Development
-
-```bash
-# Run directly with Bun
-bun run dev [command]
-
-# Or use the source entry point
-bun run src/index.ts [command]
-```
-
 ## Quick Start
 
 ### 1. Authenticate
