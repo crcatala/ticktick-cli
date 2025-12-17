@@ -312,6 +312,16 @@ This project uses [Renovate](https://github.com/renovatebot/renovate) for automa
 
 **Configuration:** See `renovate.json` in the repository root.
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+When submitting changes that affect users, please add an entry to the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md).
+
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the release process and how to publish new versions.
+
 ## License
 
 MIT
