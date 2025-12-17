@@ -1,6 +1,6 @@
 # ticktick-cli
 
-A command-line interface for [TickTick](https://ticktick.com) task management, optimized for AI agents.
+A command-line interface for the [TickTick](https://ticktick.com) task management app, optimized for AI agents.
 
 ## Installation
 
