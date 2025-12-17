@@ -15,10 +15,16 @@ on:
 jobs:
   live-tests:
     runs-on: ubuntu-latest
-    # Only run if the token secret is available
-    if: ${{ secrets.TICKTICK_TOKEN != '' }}
+    env:
+      TICKTICK_TOKEN: ${{ secrets.TICKTICK_TOKEN }}
     
     steps:
+      - name: Check for token
+        run: |
+          if [ -z "$TICKTICK_TOKEN" ]; then
+            echo "::warning::TICKTICK_TOKEN secret is not set. Skipping live tests."
+            echo "SKIP_TESTS=true" >> $GITHUB_ENV
+          fi
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
@@ -29,14 +35,14 @@ jobs:
         run: bun install
 
       - name: Run live integration tests
+        if: env.SKIP_TESTS != 'true'
         env:
           RUN_LIVE_TESTS: "1"
-          TICKTICK_TOKEN: ${{ secrets.TICKTICK_TOKEN }}
           TICKTICK_DEBUG: ${{ inputs.debug == 'true' && '1' || '0' }}
         run: bun test tests/integration/live-api.test.ts --timeout 60000
 
       - name: Test Summary
-        if: always()
+        if: always() && env.SKIP_TESTS != 'true'
         run: |
           echo "## Live Integration Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -45,3 +51,9 @@ jobs:
           else
             echo "❌ Some live tests failed" >> $GITHUB_STEP_SUMMARY
           fi
+      
+      - name: Skipped Summary
+        if: env.SKIP_TESTS == 'true'
+        run: |
+          echo "## Live Integration Tests Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "TICKTICK_TOKEN secret not configured." >> $GITHUB_STEP_SUMMARY
