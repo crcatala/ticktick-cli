@@ -1,6 +1,6 @@
 # ticktick-cli
 
-A command-line interface for [TickTick](https://ticktick.com) task management, built with TypeScript and Bun.
+A command-line interface for [TickTick](https://ticktick.com) task management, optimized for AI agents.
 
 ## Installation
 
