@@ -3,6 +3,7 @@
  * TickTick CLI - Command-line interface for TickTick
  */
 import { Command, Option } from "commander";
+import packageJson from "../package.json" with { type: "json" };
 import {
   createAuthCommand,
   createTaskCommand,
@@ -44,7 +45,7 @@ const program = new Command();
 program
   .name("ticktick")
   .description("Command-line interface for TickTick")
-  .version("1.0.0")
+  .version(packageJson.version)
   .addOption(
     new Option(
       "--validation <strategy>",
