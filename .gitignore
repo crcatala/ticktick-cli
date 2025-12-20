@@ -35,3 +35,6 @@ schemas/snapshots/
 # Beads protected branches (issues.jsonl only on sync branch)
 .beads/issues.jsonl
 .beads/deletions.jsonl
+
+# bv (beads viewer) local config and caches
+.bv/
