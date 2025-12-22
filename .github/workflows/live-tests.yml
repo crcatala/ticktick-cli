@@ -25,7 +25,7 @@ jobs:
             echo "::warning::TICKTICK_TOKEN secret is not set. Skipping live tests."
             echo "SKIP_TESTS=true" >> $GITHUB_ENV
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
