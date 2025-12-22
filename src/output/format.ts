@@ -58,7 +58,7 @@ export function printKeyValue(
 /**
  * Truncate an ID for display.
  */
-export function truncateId(id: string | null | undefined, length = 8): string {
+export function truncateId(id: string | null | undefined, length = 36): string {
   if (!id) return "-";
   return id.length > length ? id.slice(0, length) : id;
 }
@@ -97,7 +97,7 @@ export function printChecklistItems(
 
   for (const item of sorted) {
     const checkbox = item.status === 1 ? "☑" : "☐";
-    const shortId = item.id?.slice(0, 8) ?? "?";
+    const shortId = item.id ?? "?";
     console.log(`  ${checkbox} [${shortId}] ${item.title ?? "(untitled)"}`);
   }
 }

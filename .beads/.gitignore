@@ -26,6 +26,7 @@ beads.right.meta.json
 # Protected branches mode: all data lives on sync branch (beads-sync)
 # These files are NOT tracked on main
 issues.jsonl
+interactions.jsonl
 metadata.json
 config.yaml
 config.json
