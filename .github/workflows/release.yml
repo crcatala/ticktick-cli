@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     env:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
     
