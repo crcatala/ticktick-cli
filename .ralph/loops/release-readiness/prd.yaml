@@ -85,7 +85,7 @@ tasks:
 
   - id: tc-f620
     title: Add CODEOWNERS file
-    status: pending
+    status: done
     acceptance:
       - ".github/CODEOWNERS file exists"
       - "Workflow directory requires maintainer review"

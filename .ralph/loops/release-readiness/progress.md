@@ -42,3 +42,10 @@
 - Files changed: `.github/workflows/gitguardian.yml`
 - **Learnings:** GitGuardian workflow needs GITGUARDIAN_API_KEY secret configured in repo settings
 ---
+
+## [2026-01-17 17:43] - tc-f620
+- Created CODEOWNERS file for workflow protection
+- Requires @crcatala review for `.github/workflows/` changes
+- Files changed: `.github/CODEOWNERS`
+- **Learnings:** Simple security layer - requires branch protection rules to be effective
+---
