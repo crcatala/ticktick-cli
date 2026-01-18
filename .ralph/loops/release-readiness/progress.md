@@ -24,3 +24,12 @@
 - Files changed: `.github/workflows/test.yml`, `package.json`, `bun.lock`
 - **Learnings:** oxlint runs fast (~24ms on 37 files), produces warnings only (no errors) - CI job will pass
 ---
+
+## [2026-01-17 17:39] - tc-af3f
+- Pinned all GitHub Actions to SHA commits across all 3 workflow files
+- test.yml: pinned checkout (v6.0.1) and setup-bun (v2.1.0) in lint, typecheck, test jobs
+- live-tests.yml: pinned checkout (v6.0.1) and setup-bun (v2.1.0), added `--frozen-lockfile`, added step names
+- release.yml: pinned checkout (v6.0.1), setup-bun (v2.1.0), setup-node (v6.2.0)
+- Files changed: `.github/workflows/test.yml`, `.github/workflows/live-tests.yml`, `.github/workflows/release.yml`
+- **Learnings:** Use `gh api repos/{owner}/{repo}/git/refs/tags` to look up SHA for any action version
+---

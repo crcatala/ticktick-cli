@@ -50,7 +50,7 @@ tasks:
 
   - id: tc-af3f
     title: Pin GitHub Actions to SHA commits
-    status: pending
+    status: done
     acceptance:
       - "All actions in test.yml are pinned to SHA with version comment"
       - "All actions in live-tests.yml are pinned to SHA with version comment"
