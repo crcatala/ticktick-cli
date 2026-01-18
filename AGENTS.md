@@ -1,41 +1,47 @@
+## Issue Tracking with tk (ticket)
 
-## Issue Tracking with bd (beads)
+**IMPORTANT**: This project uses **tk (ticket)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
-
-### Why bd?
+### Why tk?
 
 - Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Auto-syncs to JSONL for version control
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
+- Git-friendly: Tickets stored as plain markdown in `.tickets/`
+- Simple: Minimal CLI with intuitive commands
+- Agent-optimized: JSON output via `query`, ready work detection
 
 ### Quick Start
 
 **Check for ready work:**
 ```bash
-bd ready --json
+tk ready
 ```
 
-**Create new issues:**
+**Create new tickets:**
 ```bash
-bd create "Issue title" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" -p 1 --deps discovered-from:bd-123 --json
-bd create "Subtask" --parent <epic-id> --json  # Hierarchical subtask (gets ID like epic-id.1)
+tk create "Issue title" -t bug|feature|task -p 0-4
+tk create "Issue title" -p 1 -d "Description here"
+tk create "Subtask" --parent <epic-id>  # Hierarchical subtask
 ```
 
 **Claim and update:**
 ```bash
-bd update bd-42 --status in_progress --json
-bd update bd-42 --priority 1 --json
+tk start <id>              # Set status to in_progress
+tk status <id> open        # Change status
 ```
 
 **Complete work:**
 ```bash
-bd close bd-42 --reason "Completed" --json
+tk close <id>
 ```
 
-### Issue Types
+**Add dependencies:**
+```bash
+tk dep <id> <blocker-id>   # id depends on blocker-id
+tk undep <id> <blocker-id> # Remove dependency
+tk dep tree <id>           # Show dependency tree
+```
+
+### Ticket Types
 
 - `bug` - Something broken
 - `feature` - New functionality
@@ -53,45 +59,39 @@ bd close bd-42 --reason "Completed" --json
 
 ### Workflow for AI Agents
 
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task**: `bd update <id> --status in_progress`
+1. **Check ready work**: `tk ready` shows unblocked issues
+2. **Claim your task**: `tk start <id>`
 3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-6. **Commit together**: Always commit the `.beads/issues.jsonl` file together with the code changes so issue state stays in sync with code state
+4. **Discover new work?** Create linked ticket:
+   ```bash
+   new_id=$(tk create "Found bug" -p 1)
+   tk dep $new_id <parent-id>  # New issue depends on parent
+   ```
+5. **Complete**: `tk close <id>`
+6. **Commit together**: Always commit `.tickets/` changes with your code
 
-### Auto-Sync
-
-bd automatically syncs with git:
-- Exports to `.beads/issues.jsonl` after changes (5s debounce)
-- Imports from JSONL when newer (e.g., after `git pull`)
-- No manual export/import needed!
-
-### GitHub Copilot Integration
-
-If using GitHub Copilot, also create `.github/copilot-instructions.md` for automatic instruction loading.
-Run `bd onboard` to get the content, or see step 2 of the onboard instructions.
-
-### MCP Server (Recommended)
-
-If using Claude or MCP-compatible clients, install the beads MCP server:
+### Useful Commands
 
 ```bash
-pip install beads-mcp
+tk ls                      # List all tickets
+tk ls --status open        # Filter by status
+tk ready                   # Unblocked open/in_progress tickets
+tk blocked                 # Tickets waiting on dependencies
+tk closed                  # Recently closed tickets
+tk show <id>               # Show ticket details
+tk edit <id>               # Edit in $EDITOR
+tk add-note <id> "note"    # Add timestamped note
+tk query                   # JSON output for all tickets
+tk query '.[] | select(.status == "open")'  # jq filter
 ```
 
-Add to MCP config (e.g., `~/.config/claude/config.json`):
-```json
-{
-  "beads": {
-    "command": "beads-mcp",
-    "args": []
-  }
-}
-```
+### Partial ID Matching
 
-Then use `mcp__beads__*` functions instead of CLI commands.
+tk supports partial ID matching:
+```bash
+tk show 5c4     # Matches tt-cli-5c46
+tk start bgj    # Matches tt-cli-bgj
+```
 
 ### Managing AI-Generated Planning Documents
 
@@ -108,35 +108,13 @@ AI assistants often create planning and design documents during development:
 - Keep the repository root clean and focused on permanent project files
 - Only access `history/` when explicitly asked to review past planning
 
-**Example .gitignore entry (optional):**
-```
-# AI planning documents (ephemeral)
-history/
-```
-
-**Benefits:**
-- ✅ Clean repository root
-- ✅ Clear separation between ephemeral and permanent documentation
-- ✅ Easy to exclude from version control if desired
-- ✅ Preserves planning history for archeological research
-- ✅ Reduces noise when browsing the project
-
-### CLI Help
-
-Run `bd <command> --help` to see all available flags for any command.
-For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
-
 ### Important Rules
 
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
+- ✅ Use tk for ALL task tracking
+- ✅ Check `tk ready` before asking "what should I work on?"
 - ✅ Store AI planning docs in `history/` directory
-- ✅ Run `bd <cmd> --help` to discover available flags
+- ✅ Commit `.tickets/` together with code changes
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
 - ❌ Do NOT clutter repo root with planning documents
-
-For more details, see README.md and QUICKSTART.md.
