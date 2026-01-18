@@ -6,6 +6,8 @@ jobs:
   scanning:
     name: GitGuardian scan
     runs-on: ubicloud-standard-2
+    # Skip if GITGUARDIAN_API_KEY secret is not configured
+    if: ${{ secrets.GITGUARDIAN_API_KEY != '' }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
