@@ -6,6 +6,7 @@ links: []
 created: 2025-12-15T14:12:56.152321942-08:00
 type: task
 priority: 1
+parent: tt-cli-bgj
 ---
 # Add typecheck step to CI workflow
 

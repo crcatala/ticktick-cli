@@ -1,6 +1,6 @@
 ---
 id: tt-cli-4ci
-status: open
+status: closed
 deps: []
 links: []
 created: 2025-12-15T14:12:51.609919071-08:00
