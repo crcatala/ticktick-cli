@@ -34,7 +34,7 @@ tasks:
 
   - id: tc-74b6
     title: Add lint step to CI workflow
-    status: pending
+    status: done
     acceptance:
       - "CI workflow includes a lint job"
       - "Uses oxlint (already in devDependencies) or add it"
