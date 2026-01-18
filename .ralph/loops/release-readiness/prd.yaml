@@ -1,0 +1,143 @@
+# Release Readiness - Prepare ticktick-cli for v0.1.0 public release
+# Epic: tt-cli-bgj
+
+name: "Release Readiness"
+description: |
+  Complete GitHub repository setup and CI hardening for v0.1.0 release.
+  - CI improvements (typecheck, lint)
+  - Security hardening (SHA pinning, secret scanning, CODEOWNERS)
+  - GitHub templates (issues, PR)
+
+branch: "ralph/release-readiness"
+
+create_pr: true
+pr_title: "chore: release readiness - CI hardening and GitHub templates"
+
+issue_tracker: tk
+pre_commit: "bun test"
+
+tasks:
+  # === CI Improvements (P1) ===
+
+  - id: tt-cli-wkc
+    title: Add typecheck step to CI workflow
+    status: done
+    acceptance:
+      - "CI workflow includes a typecheck job that runs `bun run typecheck`"
+      - "Typecheck runs on push to main and on pull requests"
+      - "Job fails if there are TypeScript errors"
+    notes: |
+      Update .github/workflows/test.yml to add a typecheck job, or restructure
+      into a proper ci.yml with separate jobs like raindrop-cli.
+      
+      Reference: ~/workspace/raindrop-cli/.github/workflows/ci.yml
+
+  - id: tc-74b6
+    title: Add lint step to CI workflow
+    status: pending
+    acceptance:
+      - "CI workflow includes a lint job"
+      - "Uses oxlint (already in devDependencies) or add it"
+      - "Lint runs on push to main and on pull requests"
+      - "package.json has a 'lint' script"
+    notes: |
+      Add linting to CI. Check if oxlint is configured (oxlint.json exists).
+      Add lint script to package.json if missing.
+      
+      Reference: ~/workspace/raindrop-cli/.github/workflows/ci.yml
+
+  # === Security Hardening (P2) ===
+
+  - id: tc-af3f
+    title: Pin GitHub Actions to SHA commits
+    status: pending
+    acceptance:
+      - "All actions in test.yml are pinned to SHA with version comment"
+      - "All actions in live-tests.yml are pinned to SHA with version comment"
+      - "All actions in release.yml are pinned to SHA with version comment"
+    notes: |
+      Pin for supply chain security. Format:
+      ```yaml
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+      ```
+      
+      Look up current SHAs for:
+      - actions/checkout (v6)
+      - oven-sh/setup-bun (v2)
+      - actions/setup-node (v6)
+      
+      Reference: ~/workspace/raindrop-cli/.github/workflows/ci.yml for SHA examples
+
+  - id: tc-6d01
+    title: Add GitGuardian secret scanning
+    status: pending
+    acceptance:
+      - ".github/workflows/gitguardian.yml exists"
+      - "Workflow runs on push and pull_request"
+      - "Uses GitGuardian/ggshield-action pinned to SHA"
+      - "Includes fetch-depth: 0 for full history scan"
+    notes: |
+      Create new workflow for secret scanning. Pin action to SHA from start.
+      
+      Reference: ~/workspace/raindrop-cli/.github/workflows/gitguardian.yml
+      
+      User will need to add GITGUARDIAN_API_KEY secret to repo settings.
+
+  - id: tc-f620
+    title: Add CODEOWNERS file
+    status: pending
+    acceptance:
+      - ".github/CODEOWNERS file exists"
+      - "Workflow directory requires maintainer review"
+    notes: |
+      Create .github/CODEOWNERS:
+      ```
+      # Require maintainer review for workflow changes
+      /.github/workflows/ @crcatala
+      ```
+
+  # === GitHub Templates (P2) ===
+
+  - id: tt-cli-uio
+    title: Create GitHub issue templates
+    status: pending
+    acceptance:
+      - ".github/ISSUE_TEMPLATE/bug_report.md exists with proper frontmatter"
+      - ".github/ISSUE_TEMPLATE/feature_request.md exists with proper frontmatter"
+      - "Templates include relevant sections for ticktick-cli"
+    notes: |
+      Create issue templates for bug reports and feature requests.
+      Include sections for version, OS, steps to reproduce, expected behavior.
+
+  - id: tt-cli-lyl
+    title: Create GitHub PR template
+    status: pending
+    acceptance:
+      - ".github/PULL_REQUEST_TEMPLATE.md exists"
+      - "Template includes sections for description, type of change, testing"
+    notes: |
+      Create PR template with checklist for contributors.
+      Include: description, type of change, testing done, checklist.
+
+  # === Final Verification ===
+
+  - id: release-readiness-final
+    title: Verify PR CI is passing
+    status: pending
+    acceptance:
+      - "All CI workflow checks on the PR are passing (green)"
+      - "No workflow syntax errors"
+      - "Typecheck job passes"
+      - "Lint job passes"
+      - "Test job passes"
+    notes: |
+      Push the branch and create PR if not already done.
+      Monitor CI and fix any failures.
+      
+      ```bash
+      gh pr checks
+      gh run list --branch ralph/release-readiness
+      gh run view <run-id> --log-failed
+      ```
+      
+      Only mark done when all checks pass.
