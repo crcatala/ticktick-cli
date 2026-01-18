@@ -58,3 +58,11 @@
 - Files changed: `.github/ISSUE_TEMPLATE/bug_report.md`, `.github/ISSUE_TEMPLATE/feature_request.md`
 - **Learnings:** GitHub issue templates need YAML frontmatter with `name`, `about`, `title`, `labels`, `assignees` fields
 ---
+
+## [2026-01-17 17:45] - tt-cli-lyl
+- Created GitHub PR template at `.github/PULL_REQUEST_TEMPLATE.md`
+- Includes sections: Description, Type of Change (with checkboxes), Testing Done (with checklist), Checklist
+- Testing Done section includes `bun test`, `bun run typecheck`, `bun run lint`
+- Files changed: `.github/PULL_REQUEST_TEMPLATE.md`
+- **Learnings:** PR templates are simpler than issue templates - no YAML frontmatter needed
+---

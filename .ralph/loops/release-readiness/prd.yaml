@@ -111,7 +111,7 @@ tasks:
 
   - id: tt-cli-lyl
     title: Create GitHub PR template
-    status: pending
+    status: done
     acceptance:
       - ".github/PULL_REQUEST_TEMPLATE.md exists"
       - "Template includes sections for description, type of change, testing"
