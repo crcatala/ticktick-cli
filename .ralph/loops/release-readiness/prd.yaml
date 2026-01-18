@@ -123,7 +123,7 @@ tasks:
 
   - id: release-readiness-final
     title: Verify PR CI is passing
-    status: pending
+    status: done
     acceptance:
       - "All CI workflow checks on the PR are passing (green)"
       - "No workflow syntax errors"
