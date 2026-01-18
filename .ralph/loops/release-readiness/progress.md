@@ -49,3 +49,12 @@
 - Files changed: `.github/CODEOWNERS`
 - **Learnings:** Simple security layer - requires branch protection rules to be effective
 ---
+
+## [2026-01-17 17:44] - tt-cli-uio
+- Created GitHub issue templates directory `.github/ISSUE_TEMPLATE/`
+- Created `bug_report.md` with sections: description, steps to reproduce, expected/actual behavior, environment
+- Created `feature_request.md` with sections: problem statement, proposed solution, use case, alternatives
+- Both templates have proper YAML frontmatter (name, about, title prefix, labels)
+- Files changed: `.github/ISSUE_TEMPLATE/bug_report.md`, `.github/ISSUE_TEMPLATE/feature_request.md`
+- **Learnings:** GitHub issue templates need YAML frontmatter with `name`, `about`, `title`, `labels`, `assignees` fields
+---

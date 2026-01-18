@@ -100,7 +100,7 @@ tasks:
 
   - id: tt-cli-uio
     title: Create GitHub issue templates
-    status: pending
+    status: done
     acceptance:
       - ".github/ISSUE_TEMPLATE/bug_report.md exists with proper frontmatter"
       - ".github/ISSUE_TEMPLATE/feature_request.md exists with proper frontmatter"
