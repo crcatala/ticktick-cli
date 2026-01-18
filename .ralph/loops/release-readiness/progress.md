@@ -33,3 +33,12 @@
 - Files changed: `.github/workflows/test.yml`, `.github/workflows/live-tests.yml`, `.github/workflows/release.yml`
 - **Learnings:** Use `gh api repos/{owner}/{repo}/git/refs/tags` to look up SHA for any action version
 ---
+
+## [2026-01-17 17:42] - tc-6d01
+- Created GitGuardian secret scanning workflow
+- Uses ubicloud-standard-2 runner per guardrails (not ubuntu-latest)
+- Actions pinned to SHA: checkout v6.0.1, ggshield-action v1.46.0
+- Includes fetch-depth: 0 for full history scan
+- Files changed: `.github/workflows/gitguardian.yml`
+- **Learnings:** GitGuardian workflow needs GITGUARDIAN_API_KEY secret configured in repo settings
+---

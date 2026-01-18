@@ -70,7 +70,7 @@ tasks:
 
   - id: tc-6d01
     title: Add GitGuardian secret scanning
-    status: pending
+    status: done
     acceptance:
       - ".github/workflows/gitguardian.yml exists"
       - "Workflow runs on push and pull_request"
