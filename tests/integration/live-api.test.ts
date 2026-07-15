@@ -16,6 +16,7 @@
  */
 import { expect, it } from "bun:test";
 import {
+  apiDelay,
   describeLiveWithProject,
   generateTestName,
   TEST_RESOURCE_PREFIX,
@@ -140,6 +141,92 @@ describeLiveWithProject("Task API", ({ getClient, getTestProject }) => {
     const tasks = await client.getTasks();
     const found = tasks.find(t => t.id === task.id);
     expect(found).toBeUndefined();
+  });
+});
+
+// ============================================================
+// Note Tests
+// ============================================================
+
+describeLiveWithProject("Note API", ({ getClient, getTestProject }) => {
+  it("creates a note and converts it back to a task", async () => {
+    const client = getClient();
+    let noteProjectId: string | undefined;
+    let noteId: string | undefined;
+
+    try {
+      const noteProject = await client.createProject({
+        name: generateTestName("note-project"),
+        kind: "NOTE",
+      });
+      noteProjectId = noteProject.id;
+
+      const title = generateTestName("note");
+      const note = await client.createTask({
+        title,
+        projectId: noteProject.id,
+        kind: "NOTE",
+        content: "Live note content",
+        items: [],
+        reminders: [],
+        tags: [],
+        priority: 0,
+        progress: 0,
+        status: 0,
+      });
+      noteId = note.id;
+
+      let fetched = await client.getTask(note.id, noteProject.id);
+      expect(fetched.kind).toBe("NOTE");
+      expect(fetched.title).toBe(title);
+      expect(fetched.content).toBe("Live note content");
+
+      await client.convertTaskKind(note.id, noteProject.id, "TEXT");
+      fetched = await client.getTask(note.id, noteProject.id);
+      expect(fetched.kind).toBe("TEXT");
+      expect(fetched.content).toBe("Live note content");
+    } finally {
+      if (noteId && noteProjectId) {
+        await client.deleteTasks([noteId], noteProjectId);
+        await apiDelay();
+      }
+      if (noteProjectId) {
+        await client.deleteProjects([noteProjectId]);
+      }
+    }
+  });
+
+  it("converts a task to a normalized note", async () => {
+    const client = getClient();
+    const testProject = getTestProject();
+    const startDate = new Date(Date.now() + 86_400_000).toISOString();
+    const task = await client.createTask({
+      title: generateTestName("task-to-note"),
+      projectId: testProject.getProjectId(),
+      content: "Retained content",
+      priority: 5,
+      progress: 50,
+      dueDate: startDate,
+      startDate,
+      isAllDay: true,
+    });
+    testProject.trackTask(task.id);
+
+    await client.convertTaskKind(task.id, testProject.getProjectId(), "NOTE");
+    const note = await client.getTask(task.id, testProject.getProjectId());
+
+    expect(note.kind).toBe("NOTE");
+    expect(note.title).toBe(task.title);
+    expect(note.content).toBe("Retained content");
+    expect(note.startDate).toBe(startDate);
+    expect(note.isAllDay).toBe(true);
+    expect(note.priority).toBe(0);
+    expect(note.progress).toBe(0);
+    expect(note.dueDate).toBeFalsy();
+    expect(note.tags ?? []).toEqual([]);
+    expect(note.items ?? []).toEqual([]);
+    expect(note.reminders ?? []).toEqual([]);
+    expect(note.repeatFlag).toBeFalsy();
   });
 });
 
