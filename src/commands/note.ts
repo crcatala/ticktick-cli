@@ -5,9 +5,14 @@ import type { Project } from "../api/types.js";
 import { printError, printInfo, printJson, printSuccess } from "../output/index.js";
 import { getGlobalOptions } from "../index.js";
 import { handleError } from "./errors.js";
+import { formatProjectResolutionError, resolveProjectReference } from "./task-filters.js";
 
 function findByIdOrPrefix<T extends { id?: string | null }>(items: T[], id: string): T | undefined {
-  return items.find((item) => item.id === id || item.id?.startsWith(id));
+  const exact = items.find((item) => item.id === id);
+  if (exact) return exact;
+  const matches = items.filter((item) => item.id?.startsWith(id));
+  if (matches.length > 1) throw new Error(`Multiple items match "${id}". Provide the full ID.`);
+  return matches[0];
 }
 
 export type NoteProjectResolution =
@@ -16,8 +21,9 @@ export type NoteProjectResolution =
 
 /** Resolve a project reference and ensure it is a TickTick note list. */
 export function resolveNoteProject(projects: Project[], id: string): NoteProjectResolution {
-  const project = findByIdOrPrefix(projects, id);
-  if (!project) return { error: `Project not found: ${id}` };
+  const resolution = resolveProjectReference(projects, id);
+  if (resolution.error) return { error: formatProjectResolutionError(id, resolution) };
+  const project = resolution.value;
   if (project.kind !== "NOTE") {
     return { error: `Project "${project.name ?? project.id}" is not a note list` };
   }
@@ -30,7 +36,7 @@ export function createNoteCommand(): Command {
   note
     .command("add <title>")
     .description("Create a note in a note list")
-    .requiredOption("-p, --project <id>", "Note project ID")
+    .requiredOption("-p, --project <name>", "Note project name or ID")
     .option("-c, --content <text>", "Note content")
     .option("--json", "Output as JSON")
     .action(

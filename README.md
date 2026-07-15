@@ -68,10 +68,10 @@ tt task add "Buy groceries" --priority high --due tomorrow
 tt task list
 
 # See tasks in a specific project
-tt task list --project PROJECT_ID
+tt task list --project Work
 
-# Mark a task as done
-tt task done TASK_ID
+# Mark a task as done (task titles are supported when unambiguous)
+tt task done "Buy groceries"
 ```
 
 ### Quick Task Entry
@@ -82,7 +82,7 @@ tt task add "Call mom"
 
 # Task with all options
 tt task add "Prepare presentation" \
-  --project PROJECT_ID \
+  --project Work \
   --priority high \
   --due 2025-01-15 \
   --tag work \
@@ -97,10 +97,10 @@ tt task add "Prepare presentation" \
 tt project add "Journal" --kind NOTE
 
 # Add a note (the project must be a NOTE list)
-tt note add "Daily reflection" --project NOTE_PROJECT_ID --content "What went well today"
+tt note add "Daily reflection" --project Journal --content "What went well today"
 
 # Convert between task and note (conversion clears task-only metadata)
-tt task convert-to-note TASK_ID
+tt task convert-to-note "Daily reflection"
 tt note convert-to-task NOTE_ID
 ```
 
@@ -166,24 +166,24 @@ fi
 | `tt auth status` | Show authentication status |
 | `tt auth whoami` | Alias for status |
 | `tt task list` | List active tasks |
-| `tt task show ID` | Show task details |
+| `tt task show ID_OR_TITLE` | Show task details |
 | `tt task add TITLE` | Create a new task |
-| `tt task edit ID` | Edit an existing task |
-| `tt task done ID` | Mark task as complete |
-| `tt task abandon ID` | Mark task as abandoned |
-| `tt task reopen ID` | Reopen closed task |
-| `tt task delete ID` | Delete task |
+| `tt task edit ID_OR_TITLE` | Edit an existing task |
+| `tt task done ID_OR_TITLE` | Mark task as complete |
+| `tt task abandon ID_OR_TITLE` | Mark task as abandoned |
+| `tt task reopen ID_OR_TITLE` | Reopen closed task |
+| `tt task delete ID_OR_TITLE` | Delete task |
 | `tt task closed` | List completed/abandoned tasks |
 | `tt task subtask:add TASK PARENT` | Make task a subtask |
 | `tt task subtask:unset TASK` | Remove from parent |
-| `tt task convert-to-note ID` | Convert a task to a note |
-| `tt note add TITLE --project ID` | Create a note in a note list |
+| `tt task convert-to-note ID_OR_TITLE` | Convert a task to a note |
+| `tt note add TITLE --project NAME_OR_ID` | Create a note in a note list |
 | `tt note convert-to-task ID` | Convert a note to a task |
 | `tt project list` | List all projects |
-| `tt project show ID` | Show project details |
+| `tt project show ID_OR_NAME` | Show project details |
 | `tt project add NAME` | Create a new project |
-| `tt project edit ID` | Edit a project |
-| `tt project delete ID` | Delete project |
+| `tt project edit ID_OR_NAME` | Edit a project |
+| `tt project delete ID_OR_NAME` | Delete project |
 | `tt project inbox` | Show inbox project ID |
 | `tt group list` | List project groups |
 | `tt group add NAME` | Create a project group |
@@ -199,6 +199,8 @@ fi
 | `tt user stats` | Show usage statistics |
 | `tt sync` | Fetch full state snapshot |
 | `tt trash empty` | Permanently delete all trashed items |
+
+Task references accept exact IDs, unambiguous ID prefixes, and case-insensitive exact titles. Project references also accept unambiguous case-insensitive name prefixes. If multiple items match, use a full ID or add `--project PROJECT` to task lookup commands that support it.
 
 Use `tt COMMAND --help` for detailed options.
 

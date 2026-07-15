@@ -1,6 +1,6 @@
 ---
 id: tt-cli-fsn
-status: open
+status: closed
 deps: []
 links: []
 created: 2025-12-15T16:15:45.845144388-08:00
@@ -48,3 +48,9 @@ tt task add 'Bug fix' -p Work  # short flag too
 The tick-tick-cli bash tool supports this with `--list 'Project Name'` syntax.
 
 
+
+## Notes
+
+**2026-07-15T15:22:07Z**
+
+Implemented safe project ID/prefix/name resolution across task, project, and note commands; verified with bun run verify.

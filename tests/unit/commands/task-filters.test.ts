@@ -10,9 +10,12 @@ import {
   filterByTag,
   filterByPriority,
   findTaskById,
+  formatProjectResolutionError,
+  resolveProjectReference,
+  resolveTaskReference,
 } from "../../../src/commands/task-filters.js";
 import { parsePriority, PRIORITY_MAP } from "../../../src/utils/priority.js";
-import { createMockTask } from "./helpers.js";
+import { createMockProject, createMockTask } from "./helpers.js";
 
 describe("Task Filters", () => {
   describe("filterByProject", () => {
@@ -284,74 +287,68 @@ describe("Priority Utilities", () => {
   });
 });
 
-describe("Task ID Lookup", () => {
-  describe("findTaskById", () => {
-    it("finds task by exact ID", () => {
-      const tasks = [
-        createMockTask({ id: "task-abc-123", title: "Task A" }),
-        createMockTask({ id: "task-def-456", title: "Task B" }),
-      ];
+describe("task and project reference resolution", () => {
+  const tasks = [
+    createMockTask({ id: "task-abc-123", title: "Fix bug", projectId: "work" }),
+    createMockTask({ id: "task-abc-456", title: "Fix bug", projectId: "home" }),
+    createMockTask({ id: "task-def-789", title: "Write docs", projectId: "work" }),
+  ];
 
-      const found = findTaskById(tasks, "task-abc-123");
+  it("prefers an exact ID over an ID prefix or title", () => {
+    const result = resolveTaskReference([...tasks, createMockTask({ id: "Fix bug", title: "Other" })], "Fix bug");
+    expect(result.value?.title).toBe("Other");
+  });
 
-      expect(found?.title).toBe("Task A");
-    });
+  it("resolves a unique ID prefix and case-insensitive exact title", () => {
+    expect(resolveTaskReference(tasks, "task-def").value?.title).toBe("Write docs");
+    expect(resolveTaskReference(tasks, "write DOCS").value?.id).toBe("task-def-789");
+  });
 
-    it("finds task by ID prefix", () => {
-      const tasks = [
-        createMockTask({ id: "task-abc-123-full-id", title: "Task A" }),
-        createMockTask({ id: "task-def-456-full-id", title: "Task B" }),
-      ];
+  it("trims references and prefers an exact title over conflicting ID prefixes", () => {
+    const result = resolveTaskReference([
+      createMockTask({ id: "abc-123", title: "abc" }),
+      createMockTask({ id: "abc-456", title: "Other" }),
+    ], " abc ");
+    expect(result.value?.title).toBe("abc");
+    expect(resolveTaskReference(tasks, "   ").error).toBe("not_found");
+  });
 
-      const found = findTaskById(tasks, "task-abc");
+  it("does not match partial titles and reports ambiguous IDs or titles", () => {
+    expect(resolveTaskReference(tasks, "Write").error).toBe("not_found");
+    expect(resolveTaskReference(tasks, "task-abc").error).toBe("ambiguous");
+    expect(resolveTaskReference(tasks, "fix bug").error).toBe("ambiguous");
+    expect(() => findTaskById(tasks, "fix bug")).toThrow("Multiple tasks match");
+  });
 
-      expect(found?.title).toBe("Task A");
-    });
+  it("resolves project IDs, prefixes, and case-insensitive names safely", () => {
+    const projects = [
+      createMockProject({ id: "work-123", name: "Work" }),
+      createMockProject({ id: "home-456", name: "Home" }),
+      createMockProject({ id: "work-789", name: "Work" }),
+    ];
+    expect(resolveProjectReference(projects, "home").value?.id).toBe("home-456");
+    expect(resolveProjectReference(projects, "HOME").value?.id).toBe("home-456");
+    expect(resolveProjectReference(projects, "work").error).toBe("ambiguous");
+  });
 
-    it("returns undefined when task not found", () => {
-      const tasks = [createMockTask({ id: "task-123", title: "Task A" })];
+  it("resolves exact names before conflicting ID prefixes", () => {
+    const projects = [
+      createMockProject({ id: "work-123", name: "Other" }),
+      createMockProject({ id: "elsewhere", name: "Work" }),
+    ];
+    expect(resolveProjectReference(projects, "work").value?.id).toBe("elsewhere");
+  });
 
-      const found = findTaskById(tasks, "nonexistent");
-
-      expect(found).toBeUndefined();
-    });
-
-    it("prefers exact match over prefix match", () => {
-      const tasks = [
-        createMockTask({ id: "task", title: "Exact" }),
-        createMockTask({ id: "task-extended", title: "Extended" }),
-      ];
-
-      const found = findTaskById(tasks, "task");
-
-      expect(found?.title).toBe("Exact");
-    });
-
-    it("handles empty array", () => {
-      const found = findTaskById([], "task-123");
-      expect(found).toBeUndefined();
-    });
-
-    it("handles tasks with undefined id", () => {
-      const tasks = [
-        createMockTask({ id: undefined, title: "No ID" }),
-        createMockTask({ id: "task-123", title: "Has ID" }),
-      ];
-
-      const found = findTaskById(tasks, "task-123");
-      expect(found?.title).toBe("Has ID");
-    });
-
-    it("returns first match when multiple tasks have same prefix", () => {
-      const tasks = [
-        createMockTask({ id: "task-a-111", title: "First" }),
-        createMockTask({ id: "task-a-222", title: "Second" }),
-      ];
-
-      const found = findTaskById(tasks, "task-a");
-
-      // Should return the first match
-      expect(found?.title).toBe("First");
-    });
+  it("resolves unique case-insensitive project-name prefixes and formats ambiguous matches", () => {
+    const projects = [
+      createMockProject({ id: "one", name: "Work" }),
+      createMockProject({ id: "two", name: "Home" }),
+      createMockProject({ id: "three", name: "Homework" }),
+    ];
+    expect(resolveProjectReference(projects, "WOR").value?.id).toBe("one");
+    const ambiguous = resolveProjectReference(projects, "hom");
+    expect(ambiguous.error).toBe("ambiguous");
+    expect(formatProjectResolutionError("hom", ambiguous)).toContain("two  Home");
+    expect(formatProjectResolutionError("hom", ambiguous)).toContain("Provide the full project ID.");
   });
 });

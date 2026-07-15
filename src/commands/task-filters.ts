@@ -1,141 +1,113 @@
 /**
- * Task filtering utilities.
- *
- * Pure functions for filtering and finding tasks, extracted from
- * command handlers to enable unit testing.
+ * Task filtering and reference-resolution utilities.
  */
-import type { Task, Project } from "../api/types.js";
+import type { Project, Task } from "../api/types.js";
 import { PRIORITY_MAP } from "../utils/priority.js";
 
-/**
- * Filter tasks by project ID.
- *
- * @param tasks - Array of tasks to filter
- * @param projectId - Project ID to match
- * @returns Tasks that belong to the specified project
- */
+export type ReferenceResolution<T> =
+  | { value: T; error?: never; matches?: never }
+  | { value?: never; error: "not_found" | "ambiguous"; matches: T[] };
+
+function resolveReference<T extends { id?: string | null; title?: string | null; name?: string | null }>(
+  items: T[],
+  reference: string,
+  label: "task" | "project"
+): ReferenceResolution<T> {
+  const trimmed = reference.trim();
+  if (!trimmed) return { error: "not_found", matches: [] };
+
+  const exactId = items.find((item) => item.id === trimmed);
+  if (exactId) return { value: exactId };
+
+  const lowerReference = trimmed.toLowerCase();
+  const textFor = (item: T) => label === "task" ? item.title : item.name;
+  const exactTextMatches = items.filter((item) => textFor(item)?.toLowerCase() === lowerReference);
+  if (exactTextMatches.length === 1) return { value: exactTextMatches[0] };
+  if (exactTextMatches.length > 1) return { error: "ambiguous", matches: exactTextMatches };
+
+  const prefixMatches = items.filter((item) => item.id?.startsWith(trimmed));
+  if (prefixMatches.length === 1) return { value: prefixMatches[0] };
+  if (prefixMatches.length > 1) return { error: "ambiguous", matches: prefixMatches };
+
+  // Project names support unambiguous case-insensitive prefixes; task titles remain exact-only.
+  if (label === "project") {
+    const textPrefixMatches = items.filter((item) => textFor(item)?.toLowerCase().startsWith(lowerReference));
+    if (textPrefixMatches.length === 1) return { value: textPrefixMatches[0] };
+    if (textPrefixMatches.length > 1) return { error: "ambiguous", matches: textPrefixMatches };
+  }
+
+  return { error: "not_found", matches: [] };
+}
+
+/** Resolve a task by exact ID, unambiguous ID prefix, or exact title. */
+export function resolveTaskReference(tasks: Task[], reference: string): ReferenceResolution<Task> {
+  return resolveReference(tasks, reference, "task");
+}
+
+/** Resolve a project by exact ID, case-insensitive exact name, or unambiguous prefix. */
+export function resolveProjectReference(projects: Project[], reference: string): ReferenceResolution<Project> {
+  return resolveReference(projects, reference, "project");
+}
+
+/** Format a safe, actionable error for a failed task reference. */
+export function formatTaskResolutionError(reference: string, resolution: ReferenceResolution<Task>): string {
+  if (resolution.error === "not_found") return `Task not found: ${reference}`;
+  const matches = (resolution.matches ?? [])
+    .map((task) => `  ${task.id ?? "-"}  ${task.title ?? "(untitled)"}  (${task.projectId ?? "no project"})`)
+    .join("\n");
+  return `Multiple tasks match "${reference}":\n${matches}\nUse --project to narrow the match, or provide the full task ID.`;
+}
+
+/** Format a safe, actionable error for a failed project reference. */
+export function formatProjectResolutionError(reference: string, resolution: ReferenceResolution<Project>): string {
+  if (resolution.error === "not_found") return `Project not found: ${reference}`;
+  const matches = (resolution.matches ?? [])
+    .map((project) => `  ${project.id ?? "-"}  ${project.name ?? "(unnamed)"}`)
+    .join("\n");
+  return `Multiple projects match "${reference}":\n${matches}\nProvide the full project ID.`;
+}
+
 export function filterByProject(tasks: Task[], projectId: string): Task[] {
-  return tasks.filter((t) => t.projectId === projectId);
+  return tasks.filter((task) => task.projectId === projectId);
 }
 
-/**
- * Filter tasks by tag name.
- *
- * @param tasks - Array of tasks to filter
- * @param tagName - Tag name to match
- * @returns Tasks that have the specified tag
- */
 export function filterByTag(tasks: Task[], tagName: string): Task[] {
-  return tasks.filter((t) => t.tags?.includes(tagName));
+  return tasks.filter((task) => task.tags?.includes(tagName));
 }
 
-/**
- * Filter tasks by priority level.
- *
- * @param tasks - Array of tasks to filter
- * @param priorityName - Priority name (high, medium, low, none)
- * @returns Tasks with the specified priority, or all tasks if priority is unknown
- */
 export function filterByPriority(tasks: Task[], priorityName: string): Task[] {
   const targetPriority = PRIORITY_MAP[priorityName.toLowerCase()];
-  if (targetPriority === undefined) {
-    return tasks;
-  }
-  return tasks.filter((t) => t.priority === targetPriority);
+  return targetPriority === undefined ? tasks : tasks.filter((task) => task.priority === targetPriority);
 }
 
-/**
- * Find a task by exact ID or ID prefix.
- *
- * @param tasks - Array of tasks to search
- * @param idOrPrefix - Full task ID or prefix to match
- * @returns The matching task, or undefined if not found
- */
-export function findTaskById(tasks: Task[], idOrPrefix: string): Task | undefined {
-  return tasks.find((t) => t.id === idOrPrefix || t.id?.startsWith(idOrPrefix));
-}
-
-/**
- * Search tasks by text query.
- * 
- * Searches in title, content, description (desc), and checklist items.
- * Case-insensitive by default.
- *
- * @param tasks - Array of tasks to search
- * @param query - Search query string (empty/whitespace-only returns all tasks)
- * @param caseSensitive - Whether to perform case-sensitive search (default: false)
- * @returns Tasks that match the search query
- */
-export function filterBySearch(
-  tasks: Task[],
-  query: string,
-  caseSensitive = false
-): Task[] {
-  // Empty or whitespace-only query returns all tasks (no filtering)
+export function filterBySearch(tasks: Task[], query: string, caseSensitive = false): Task[] {
   const trimmedQuery = query.trim();
-  if (trimmedQuery === "") {
-    return tasks;
-  }
-  
+  if (!trimmedQuery) return tasks;
   const searchQuery = caseSensitive ? trimmedQuery : trimmedQuery.toLowerCase();
-  
-  return tasks.filter((task) => {
-    // Helper to check if a string contains the query
-    const matches = (text: string | null | undefined): boolean => {
-      if (!text) return false;
-      const compareText = caseSensitive ? text : text.toLowerCase();
-      return compareText.includes(searchQuery);
-    };
-
-    // Search in title
-    if (matches(task.title)) return true;
-
-    // Search in content
-    if (matches(task.content)) return true;
-
-    // Search in description (desc field)
-    if (matches(task.desc)) return true;
-
-    // Search in checklist items
-    if (task.items && task.items.length > 0) {
-      for (const item of task.items) {
-        if (matches(item.title)) return true;
-      }
-    }
-
-    return false;
-  });
+  const matches = (text: string | null | undefined): boolean => {
+    if (!text) return false;
+    return (caseSensitive ? text : text.toLowerCase()).includes(searchQuery);
+  };
+  return tasks.filter((task) =>
+    matches(task.title) || matches(task.content) || matches(task.desc) ||
+    task.items?.some((item) => matches(item.title))
+  );
 }
 
-/**
- * Resolve a project identifier to a project ID.
- * 
- * Accepts either:
- * - A project ID (full or prefix)
- * - A project name (case-insensitive match)
- *
- * @param projects - Array of projects to search
- * @param identifier - Project ID, ID prefix, or name
- * @returns The project ID if found, undefined otherwise
- */
-export function resolveProjectId(
-  projects: Project[],
-  identifier: string
-): string | undefined {
-  // First, try exact ID match
-  const exactMatch = projects.find((p) => p.id === identifier);
-  if (exactMatch) return exactMatch.id;
+/** Resolve a task reference, throwing an actionable error when it is ambiguous. */
+export function findTaskById(tasks: Task[], idOrPrefix: string): Task | undefined {
+  const resolution = resolveTaskReference(tasks, idOrPrefix);
+  if (resolution.error === "ambiguous") {
+    throw new Error(formatTaskResolutionError(idOrPrefix, resolution));
+  }
+  return resolution.value;
+}
 
-  // Try ID prefix match
-  const prefixMatch = projects.find((p) => p.id?.startsWith(identifier));
-  if (prefixMatch) return prefixMatch.id;
-
-  // Try case-insensitive name match
-  const lowerIdentifier = identifier.toLowerCase();
-  const nameMatch = projects.find(
-    (p) => p.name?.toLowerCase() === lowerIdentifier
-  );
-  if (nameMatch) return nameMatch.id;
-
-  return undefined;
+/** Resolve a project reference, throwing an actionable error when it is ambiguous. */
+export function resolveProjectId(projects: Project[], identifier: string): string | undefined {
+  const resolution = resolveProjectReference(projects, identifier);
+  if (resolution.error === "ambiguous") {
+    throw new Error(formatProjectResolutionError(identifier, resolution));
+  }
+  return resolution.value?.id;
 }

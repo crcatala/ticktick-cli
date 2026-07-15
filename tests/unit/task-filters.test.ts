@@ -269,7 +269,7 @@ describe("resolveProjectId", () => {
     expect(result).toBe("abc");
   });
 
-  it("prefers ID match over name match", () => {
+  it("prefers exact ID over name match", () => {
     const projectsWithMatchingName: Project[] = [
       createProject({ id: "work123", name: "Other" }),
       createProject({ id: "other456", name: "work123" }),
@@ -277,7 +277,7 @@ describe("resolveProjectId", () => {
 
     const result = resolveProjectId(projectsWithMatchingName, "work123");
 
-    expect(result).toBe("work123"); // Returns the one with matching ID
+    expect(result).toBe("work123");
   });
 
   it("handles empty projects array", () => {
@@ -296,11 +296,10 @@ describe("resolveProjectId", () => {
     expect(resolveProjectId(projectsWithNullName, "proj1")).toBe("proj1");
   });
 
-  it("does not match partial project names", () => {
-    // Name matching should be exact (case-insensitive), not substring
-    const result = resolveProjectId(projects, "Work Projects");
-
-    expect(result).toBeUndefined();
+  it("resolves unambiguous project-name prefixes but not arbitrary substrings", () => {
+    expect(resolveProjectId(projects, "Wor")).toBe("abc123def456");
+    expect(resolveProjectId(projects, "ork")).toBeUndefined();
+    expect(resolveProjectId(projects, "Work Projects")).toBeUndefined();
   });
 });
 
