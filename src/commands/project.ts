@@ -15,6 +15,7 @@ import {
 } from "../output/index.js";
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";
+import { formatProjectResolutionError, resolveProjectReference } from "./task-filters.js";
 
 /**
  * Resolve the folder-related intent from parsed `project edit` options.
@@ -97,9 +98,13 @@ export function createProjectCommand(): Command {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
         const projects = await client.getProjects();
-        const foundProject = projects.find(
-          (p) => p.id === id || p.id?.startsWith(id)
-        );
+        const resolution = resolveProjectReference(projects, id);
+        if (resolution.error) {
+          printError(formatProjectResolutionError(id, resolution));
+          process.exit(1);
+          return;
+        }
+        const foundProject = resolution.value;
 
         if (!foundProject) {
           printError(`Project not found: ${id}`);
@@ -223,14 +228,13 @@ export function createProjectCommand(): Command {
 
         // Find the project first
         const projects = await client.getProjects();
-        const foundProject = projects.find(
-          (p) => p.id === id || p.id?.startsWith(id)
-        );
-
-        if (!foundProject) {
-          printError(`Project not found: ${id}`);
+        const resolution = resolveProjectReference(projects, id);
+        if (resolution.error) {
+          printError(formatProjectResolutionError(id, resolution));
           process.exit(1);
+          return;
         }
+        const foundProject = resolution.value;
 
         // Resolve the folder intent (set vs. clear vs. none)
         const folderIntent = resolveFolderIntent(options);
@@ -285,14 +289,13 @@ export function createProjectCommand(): Command {
 
         // Find the project first
         const projects = await client.getProjects();
-        const foundProject = projects.find(
-          (p) => p.id === id || p.id?.startsWith(id)
-        );
-
-        if (!foundProject) {
-          printError(`Project not found: ${id}`);
+        const resolution = resolveProjectReference(projects, id);
+        if (resolution.error) {
+          printError(formatProjectResolutionError(id, resolution));
           process.exit(1);
+          return;
         }
+        const foundProject = resolution.value;
 
         await client.deleteProjects([foundProject.id]);
         printSuccess(`Deleted project: ${foundProject.name}`);

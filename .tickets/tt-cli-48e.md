@@ -1,6 +1,6 @@
 ---
 id: tt-cli-48e
-status: open
+status: closed
 deps: []
 links: []
 created: 2025-12-15T16:16:07.462190958-08:00
@@ -66,3 +66,9 @@ Use --project to narrow scope, or use the full task ID.
 tick-tick-cli supports: `complete --task 'Fix bug' --list 'Work'`
 
 
+
+## Notes
+
+**2026-07-15T15:22:07Z**
+
+Implemented safe exact task-title resolution with ambiguity errors and project scoping for task lookup commands; verified with bun run verify.

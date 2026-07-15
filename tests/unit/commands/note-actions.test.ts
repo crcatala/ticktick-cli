@@ -53,6 +53,18 @@ describe("note command actions", () => {
     });
   });
 
+  it("resolves a project name when creating a task", async () => {
+    client.getProjects.mockResolvedValue([{ id: "work-project-123", name: "Work", kind: "TASK" }]);
+    client.createTask.mockResolvedValue({ id: "task-123", title: "Prepare release" });
+
+    await run(createTaskCommand(), ["add", "Prepare release", "--project", "work", "--json"]);
+
+    expect(client.createTask).toHaveBeenCalledWith({
+      title: "Prepare release",
+      projectId: "work-project-123",
+    });
+  });
+
   it("rejects note creation in a task project", async () => {
     client.getProjects.mockResolvedValue([{ id: "task-project-123", name: "Tasks", kind: "TASK" }]);
     const originalExit = process.exit;
@@ -84,6 +96,14 @@ describe("note command actions", () => {
     await run(createTaskCommand(), ["convert-to-note", "task-", "--json"]);
 
     expect(client.convertTaskKind).toHaveBeenCalledWith("task-123", "project-123", "NOTE");
+  });
+
+  it("completes an unambiguous exact task title", async () => {
+    client.getTasks.mockResolvedValue([{ id: "task-123", projectId: "project-123", title: "Prepare release", kind: "TEXT" }]);
+
+    await run(createTaskCommand(), ["done", "prepare RELEASE", "--yes"]);
+
+    expect(client.completeTask).toHaveBeenCalledWith("task-123", "project-123");
   });
 
   it("does not complete a note", async () => {

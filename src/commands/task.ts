@@ -130,14 +130,20 @@ export function createTaskCommand(): Command {
 
   // show command
   task
-    .command("show <id>")
+    .command("show <idOrTitle>")
     .description("Show task details")
+    .option("-p, --project <name>", "Limit title lookup to a project name or ID")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, id: string, options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
-        const tasks = await client.getTasks();
+        let tasks = await client.getTasks();
+        if (options.project) {
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          tasks = filterByProject(tasks, projectId);
+        }
         const foundTask = findTaskById(tasks, id);
 
         if (!foundTask) {
@@ -226,17 +232,19 @@ export function createTaskCommand(): Command {
   task
     .command("closed")
     .description("List closed tasks")
-    .option("-p, --project <id>", "Filter by project ID")
+    .option("-p, --project <name>", "Filter by project name or ID")
     .option("--status <status>", "Filter by status (Completed, Abandoned)", "Completed")
     .option("--json", "Output as JSON")
     .action(
       handleError(async function (this: Command, options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
-        const tasks = await client.getClosedTasks(
-          options.status,
-          options.project
-        );
+        let projectId: string | undefined;
+        if (options.project) {
+          projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+        }
+        const tasks = await client.getClosedTasks(options.status, projectId);
 
         if (options.json) {
           printJson(tasks);
@@ -252,7 +260,7 @@ export function createTaskCommand(): Command {
   task
     .command("add <title>")
     .description("Create a new task")
-    .option("-p, --project <id>", "Project ID")
+    .option("-p, --project <name>", "Project name or ID")
     .option("-c, --content <text>", "Task content/description")
     .option("--priority <level>", "Priority (high, medium, low, none)")
     .option("-d, --due <date>", "Due date (YYYY-MM-DD, today, tomorrow, +3d)")
@@ -277,7 +285,9 @@ export function createTaskCommand(): Command {
         const taskData: Parameters<typeof client.createTask>[0] = { title };
 
         if (options.project) {
-          taskData.projectId = options.project;
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          taskData.projectId = projectId;
         }
         if (options.content) {
           taskData.content = options.content;
@@ -394,11 +404,11 @@ export function createTaskCommand(): Command {
 
   // edit command
   task
-    .command("edit <id>")
+    .command("edit <idOrTitle>")
     .description("Edit an existing task")
     .option("--title <text>", "New title")
     .option("-c, --content <text>", "New content/description")
-    .option("-p, --project <id>", "New project ID")
+    .option("-p, --project <name>", "New project name or ID")
     .option("--priority <level>", "New priority (high, medium, low, none)")
     .option("-d, --due <date>", "New due date (YYYY-MM-DD, today, tomorrow, +3d)")
     .option("-r, --reminder <time>", "Reminder time (on-time, 15m, 1h, 1d, 2h30m) - requires --due date - can be used multiple times", (val, arr: string[]) => {
@@ -438,7 +448,9 @@ export function createTaskCommand(): Command {
           updateData.content = options.content;
         }
         if (options.project) {
-          updateData.projectId = options.project;
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          updateData.projectId = projectId;
         }
         if (options.priority) {
           updateData.priority = parsePriority(options.priority);
@@ -561,6 +573,7 @@ export function createTaskCommand(): Command {
   task
     .command("done <ids...>")
     .description("Mark one or more tasks as complete")
+    .option("-p, --project <name>", "Limit title lookup to a project name or ID")
     .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
       handleError(async function (this: Command, ids: string[], options) {
@@ -568,7 +581,12 @@ export function createTaskCommand(): Command {
         const client = await getClient({ validation: globalOpts.validation });
 
         // Find all tasks first
-        const allTasks = await client.getTasks();
+        let allTasks = await client.getTasks();
+        if (options.project) {
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          allTasks = filterByProject(allTasks, projectId);
+        }
         const tasksToComplete: Array<{ task: Task; taskId: string; projectId: string }> = [];
         const notFound: string[] = [];
 
@@ -654,6 +672,7 @@ export function createTaskCommand(): Command {
   task
     .command("abandon <ids...>")
     .description("Mark one or more tasks as abandoned")
+    .option("-p, --project <name>", "Limit title lookup to a project name or ID")
     .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
       handleError(async function (this: Command, ids: string[], options) {
@@ -661,7 +680,12 @@ export function createTaskCommand(): Command {
         const client = await getClient({ validation: globalOpts.validation });
 
         // Find all tasks first
-        const allTasks = await client.getTasks();
+        let allTasks = await client.getTasks();
+        if (options.project) {
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          allTasks = filterByProject(allTasks, projectId);
+        }
         const tasksToAbandon: Array<{ task: Task; taskId: string; projectId: string }> = [];
         const notFound: string[] = [];
 
@@ -747,6 +771,7 @@ export function createTaskCommand(): Command {
   task
     .command("reopen <ids...>")
     .description("Reopen one or more closed tasks")
+    .option("-p, --project <name>", "Limit title lookup to a project name or ID")
     .option("-y, --yes", "Skip confirmation for batch operations")
     .action(
       handleError(async function (this: Command, ids: string[], options) {
@@ -758,7 +783,12 @@ export function createTaskCommand(): Command {
           client.getClosedTasks("Completed"),
           client.getClosedTasks("Abandoned"),
         ]);
-        const closedTasks = [...completedTasks, ...abandonedTasks];
+        let closedTasks = [...completedTasks, ...abandonedTasks];
+        if (options.project) {
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          closedTasks = filterByProject(closedTasks, projectId);
+        }
         
         const tasksToReopen: Array<{ task: Task; taskId: string; projectId: string }> = [];
         const notFound: string[] = [];
@@ -841,6 +871,7 @@ export function createTaskCommand(): Command {
   task
     .command("delete <ids...>")
     .description("Delete one or more tasks")
+    .option("-p, --project <name>", "Limit title lookup to a project name or ID")
     .option("-f, --force", "Skip confirmation (alias for --yes)")
     .option("-y, --yes", "Skip confirmation")
     .action(
@@ -849,7 +880,12 @@ export function createTaskCommand(): Command {
         const client = await getClient({ validation: globalOpts.validation });
 
         // Find all tasks first
-        const allTasks = await client.getTasks();
+        let allTasks = await client.getTasks();
+        if (options.project) {
+          const projectId = resolveProjectId(await client.getProjects(), options.project);
+          if (!projectId) throw new Error(`Project not found: ${options.project}`);
+          allTasks = filterByProject(allTasks, projectId);
+        }
         const tasksToDelete: Array<{ task: Task; taskId: string; projectId: string }> = [];
         const notFound: string[] = [];
 
@@ -980,7 +1016,7 @@ export function createTaskCommand(): Command {
     );
 
   task
-    .command("convert-to-note <id>")
+    .command("convert-to-note <idOrTitle>")
     .description("Convert a task to a note")
     .option("--json", "Output as JSON")
     .action(
