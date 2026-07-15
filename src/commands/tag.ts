@@ -8,7 +8,6 @@ import {
   printSuccess,
   printInfo,
   printJson,
-  printKeyValue,
   printTagsTable,
 } from "../output/index.js";
 import { handleError } from "./errors.js";
@@ -138,7 +137,7 @@ export function createTagCommand(): Command {
     .description("Delete a tag")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async function (this: Command, name: string, options) {
+      handleError(async function (this: Command, name: string) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 

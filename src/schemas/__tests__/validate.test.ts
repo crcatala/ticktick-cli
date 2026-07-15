@@ -16,8 +16,6 @@ const TestItemSchema = z.object({
   name: z.string().optional(),
 }).passthrough();
 
-type TestItem = z.infer<typeof TestItemSchema>;
-
 describe("validateOne", () => {
   describe("strict mode", () => {
     it("returns validated data on success", () => {

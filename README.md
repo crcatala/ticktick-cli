@@ -35,7 +35,7 @@ node dist/index.js --help
 tt auth login
 ```
 
-You'll be prompted for your TickTick username and password. If you have 2FA enabled, provide your TOTP code:
+You'll be prompted for your TickTick username and password. If you have 2FA enabled, provide your TOTP code (automatic generation from a TOTP secret is not supported):
 
 ```bash
 tt auth login --totp-code 123456

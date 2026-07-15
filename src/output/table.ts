@@ -51,7 +51,7 @@ function renderTable(headers: string[], rows: string[][]): void {
  * Strip ANSI escape codes from a string for width calculation.
  */
 function stripAnsi(str: string): string {
-  return str.replace(/\x1b\[[0-9;]*m/g, "");
+  return str.replace(new RegExp("\\u001B\\[[0-9;]*m", "g"), "");
 }
 
 /**

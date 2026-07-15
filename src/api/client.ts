@@ -14,9 +14,6 @@ import {
   type ValidationStrategy,
   DEFAULT_VALIDATION_STRATEGY,
   TaskSchema,
-  ProjectSchema,
-  ProjectGroupSchema,
-  TagSchema,
   UserProfileSchema,
   UserStatusSchema,
   UserStatsSchema,
@@ -33,7 +30,6 @@ import type {
   UserStatus,
   UserStats,
   BatchResponse,
-  BatchOperationResponse,
   LoginResponse,
   TaskCreate,
   TaskUpdate,
@@ -440,7 +436,7 @@ export class TickTickClient {
         const currentTask = await this.getTask(task.id, task.projectId);
         // Merge updates into current task to create complete task object
         fullTask = { ...currentTask, ...task };
-      } catch (error) {
+      } catch {
         // If fetch fails, fall back to partial update
         // This could happen if task doesn't exist yet
         fullTask = task;

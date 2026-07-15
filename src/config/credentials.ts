@@ -20,7 +20,7 @@ async function getKeytar() {
   try {
     const keytar = await import("keytar");
     return keytar.default;
-  } catch (error) {
+  } catch {
     throw new Error(
       "Failed to load keytar. On Linux, install libsecret-1-dev: sudo apt-get install libsecret-1-dev\n" +
       "Or use --use-config flag to store credentials in plaintext config file."

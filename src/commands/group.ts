@@ -121,7 +121,7 @@ function buildGroupCommand(commandName: string): Command {
     .description(`Delete a ${entityName}`)
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async function (this: Command, id: string, options) {
+      handleError(async function (this: Command, id: string) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
