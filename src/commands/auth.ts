@@ -92,18 +92,6 @@ async function promptPassword(message: string): Promise<string> {
   });
 }
 
-/**
- * Generate TOTP code from secret.
- * Simple TOTP implementation for 2FA support.
- */
-function generateTOTP(secret: string): string {
-  // This is a simplified TOTP - in production use a library
-  // For now, we'll accept manual TOTP input instead
-  throw new Error(
-    "Auto TOTP not implemented. Please provide the code manually via --totp-code."
-  );
-}
-
 export function createAuthCommand(): Command {
   const auth = new Command("auth").description("Manage authentication");
 
@@ -112,7 +100,6 @@ export function createAuthCommand(): Command {
     .command("login")
     .description("Log in to TickTick")
     .option("-u, --username <email>", "TickTick username/email")
-    .option("--totp-secret <secret>", "TOTP secret for 2FA (base32 encoded)")
     .option("--totp-code <code>", "TOTP code for 2FA")
     .option(
       "--use-config",
@@ -145,17 +132,7 @@ export function createAuthCommand(): Command {
 
         printInfo("Logging in to TickTick...");
 
-        // Determine TOTP code if needed
-        let totpCode = options.totpCode;
-        if (options.totpSecret && !totpCode) {
-          // Try to generate from secret
-          try {
-            totpCode = generateTOTP(options.totpSecret);
-          } catch {
-            printError("Could not generate TOTP. Please provide --totp-code.");
-            process.exit(1);
-          }
-        }
+        const totpCode = options.totpCode;
 
         if (verbose) {
           printInfo(`[debug] TOTP code: ${totpCode ?? "(none)"}`);
@@ -165,9 +142,7 @@ export function createAuthCommand(): Command {
         const result = await login(username, password, totpCode, verbose, globalOpts.validation);
 
         if (result.need2FA && !totpCode) {
-          printError(
-            "2FA is enabled. Provide --totp-code or --totp-secret."
-          );
+          printError("2FA is enabled. Provide --totp-code.");
           process.exit(1);
         }
 
@@ -290,7 +265,6 @@ export function createAuthCommand(): Command {
     .description("Show current user (alias for status)")
     .option("--json", "Output as JSON")
     .action(async function (this: Command, options) {
-      const globalOpts = getGlobalOptions(this);
       // Delegate to status command
       const statusCmd = auth.commands.find((c) => c.name() === "status");
       if (statusCmd) {

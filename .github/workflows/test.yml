@@ -61,7 +61,7 @@ jobs:
       matrix:
         # Cover the declared engines floor (commander v15 requires >=22.12)
         # and a current release.
-        node-version: ["22.16", "24"]
+        node-version: ["22.12", "24"]
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0

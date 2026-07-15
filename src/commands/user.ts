@@ -3,7 +3,7 @@
  */
 import { Command } from "commander";
 import { getClient } from "../api/client.js";
-import { printInfo, printJson, printKeyValue } from "../output/index.js";
+import { printJson, printKeyValue } from "../output/index.js";
 import { formatDate } from "../utils/date.js";
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";

@@ -283,7 +283,7 @@ export function createProjectCommand(): Command {
     .description("Delete a project")
     .option("-f, --force", "Skip confirmation")
     .action(
-      handleError(async function (this: Command, id: string, options) {
+      handleError(async function (this: Command, id: string) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
 
