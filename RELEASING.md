@@ -58,9 +58,9 @@ Release-it prompts for the version bump and then:
 
 1. validates the clean `main` checkout and runs `bun run verify`;
 2. bumps `package.json` and moves the changelog's Unreleased entries into the new version;
-3. builds `dist/`;
+3. rebuilds `dist/`, packs it, and smoke-tests the installed `tt` and `ttcli` commands;
 4. commits and tags `vX.Y.Z`;
-5. publishes `@crcatala/ticktick-cli` publicly to npm;
+5. rebuilds immediately before publishing `@crcatala/ticktick-cli` publicly to npm;
 6. pushes the commit and tag; and
 7. creates a GitHub Release using the changelog notes.
 

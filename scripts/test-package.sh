@@ -14,7 +14,9 @@ cleanup() {
 trap cleanup EXIT
 
 bun run build >/dev/null
-TARBALL="$(npm pack --silent | tail -n 1)"
+# The artifact under test was built above. `prepack` separately guarantees that
+# direct npm pack/publish commands rebuild immediately before packaging.
+TARBALL="$(npm pack --ignore-scripts --silent | tail -n 1)"
 npm install -g --prefix "$TMP_DIR/prefix" --ignore-scripts "./$TARBALL" >/dev/null
 
 EXPECTED_VERSION="$(node -p "require('./package.json').version")"
