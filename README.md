@@ -183,7 +183,7 @@ fi
 | `tt sync` | Fetch full state snapshot |
 | `tt trash empty` | Permanently delete all trashed items |
 
-Use `ticktick COMMAND --help` for detailed options.
+Use `tt COMMAND --help` for detailed options.
 
 ## Configuration
 
@@ -202,6 +202,16 @@ Configuration is stored in `~/.config/ticktick-cli/config.json`:
 ```
 
 **Security Note:** By default, session tokens are stored in your system keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you use `--use-config`, the token is stored in plaintext in the config file with 600 permissions.
+
+### Web API compatibility
+
+This CLI uses TickTick's unofficial web API. If TickTick updates its web-client version before the CLI is updated, set `TICKTICK_WEB_VERSION` temporarily when running a command:
+
+```bash
+TICKTICK_WEB_VERSION=8121 tt auth login
+```
+
+The built-in default is `8121`. This setting is only a compatibility escape hatch; do not set it unless you have verified the current web client's `X-Device.version`.
 
 ## Known Limitations
 
@@ -226,7 +236,7 @@ bun run dev [command]
 bun run typecheck
 
 # Run tests
-bun test
+bun run test
 
 # Build binary
 bun run build
