@@ -10,6 +10,7 @@ import {
   filterByTag,
   filterByPriority,
   findTaskById,
+  formatProjectResolutionError,
   resolveProjectReference,
   resolveTaskReference,
 } from "../../../src/commands/task-filters.js";
@@ -303,12 +304,13 @@ describe("task and project reference resolution", () => {
     expect(resolveTaskReference(tasks, "write DOCS").value?.id).toBe("task-def-789");
   });
 
-  it("prefers an exact title over conflicting ID prefixes", () => {
+  it("trims references and prefers an exact title over conflicting ID prefixes", () => {
     const result = resolveTaskReference([
       createMockTask({ id: "abc-123", title: "abc" }),
       createMockTask({ id: "abc-456", title: "Other" }),
-    ], "abc");
+    ], " abc ");
     expect(result.value?.title).toBe("abc");
+    expect(resolveTaskReference(tasks, "   ").error).toBe("not_found");
   });
 
   it("does not match partial titles and reports ambiguous IDs or titles", () => {
@@ -329,13 +331,24 @@ describe("task and project reference resolution", () => {
     expect(resolveProjectReference(projects, "work").error).toBe("ambiguous");
   });
 
-  it("resolves unique project-name prefixes and rejects ambiguous ones", () => {
+  it("resolves exact names before conflicting ID prefixes", () => {
+    const projects = [
+      createMockProject({ id: "work-123", name: "Other" }),
+      createMockProject({ id: "elsewhere", name: "Work" }),
+    ];
+    expect(resolveProjectReference(projects, "work").value?.id).toBe("elsewhere");
+  });
+
+  it("resolves unique case-insensitive project-name prefixes and formats ambiguous matches", () => {
     const projects = [
       createMockProject({ id: "one", name: "Work" }),
       createMockProject({ id: "two", name: "Home" }),
       createMockProject({ id: "three", name: "Homework" }),
     ];
-    expect(resolveProjectReference(projects, "wor").value?.id).toBe("one");
-    expect(resolveProjectReference(projects, "hom").error).toBe("ambiguous");
+    expect(resolveProjectReference(projects, "WOR").value?.id).toBe("one");
+    const ambiguous = resolveProjectReference(projects, "hom");
+    expect(ambiguous.error).toBe("ambiguous");
+    expect(formatProjectResolutionError("hom", ambiguous)).toContain("two  Home");
+    expect(formatProjectResolutionError("hom", ambiguous)).toContain("Provide the full project ID.");
   });
 });
