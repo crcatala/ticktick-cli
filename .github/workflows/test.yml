@@ -51,3 +51,38 @@ jobs:
         run: bun run build
       - name: Smoke-test npm package artifact
         run: bun run test:package
+
+  # Smoke-test the built artifact under the real Node runtime, which is what
+  # end-users get via `npm i -g`. This catches issues CI's Bun-only steps
+  # would miss (e.g. ESM-only dependencies like commander v15, `import.meta.main` semantics).
+  node-smoke:
+    runs-on: ubicloud-standard-2
+    strategy:
+      matrix:
+        # Cover the declared engines floor (commander v15 requires >=22.12)
+        # and a current release.
+        node-version: ["22.16", "24"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - name: Setup Bun (for install + build)
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: latest
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build package
+        run: bun run build
+      - name: Node runtime smoke test
+        run: |
+          set -e
+          # `dist/index.js` only parses argv when run as the main module
+          # (`import.meta.main`), which is `true` on Node >=22 / Bun.
+          node dist/index.js --version
+          node dist/index.js --help >/dev/null
+          # Exercise commander option parsing incl. the negated --no-folder flag.
+          node dist/index.js project edit --help >/dev/null

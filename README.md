@@ -4,7 +4,7 @@ A command-line interface for the [TickTick](https://ticktick.com) task managemen
 
 ## Installation
 
-Requires Node.js 20+:
+Requires Node.js 22.12+ (commander v15 is ESM-only and requires Node ≥22.12 for `require(esm)`):
 
 ```bash
 npm install -g @crcatala/ticktick-cli
@@ -15,7 +15,7 @@ The package provides two equivalent commands: `tt` and `ttcli`. `tt` is used thr
 <details>
 <summary><strong>Build from Source</strong></summary>
 
-Requires Node.js 20+ and [Bun](https://bun.sh):
+Requires Node.js 22.12+ and [Bun](https://bun.sh):
 
 ```bash
 git clone https://github.com/crcatala/ticktick-cli.git
