@@ -4,7 +4,7 @@
  * Provides utilities for running tests against the real TickTick API.
  * Tests are skipped unless RUN_LIVE_TESTS=1 and TICKTICK_TOKEN are set.
  */
-import { describe, it, beforeAll, afterAll } from "bun:test";
+import { describe, beforeAll, afterAll } from "bun:test";
 import { TickTickClient } from "../../src/api/client.js";
 import { sleep } from "../../src/utils/backoff.js";
 import type { Project } from "../../src/api/types.js";
@@ -14,6 +14,9 @@ export const TEST_RESOURCE_PREFIX = "__tt-cli-test-";
 
 /** Default delay between API calls to avoid rate limiting (ms) */
 export const DEFAULT_API_DELAY = 500;
+
+/** Reuse one device fingerprint for the entire live-test process. */
+let liveClient: TickTickClient | undefined;
 
 /**
  * Check if live tests should run.
@@ -50,10 +53,12 @@ export function getLiveClient(): TickTickClient {
   // Username is not strictly required for API calls, but we include it for completeness
   const username = process.env.TICKTICK_USERNAME ?? "live-test-user";
 
-  return new TickTickClient(username, token, {
+  liveClient ??= new TickTickClient(username, token, {
     debug: process.env.TICKTICK_DEBUG === "1",
     validation: "strict",
   });
+
+  return liveClient;
 }
 
 /**
