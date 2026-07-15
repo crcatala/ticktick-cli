@@ -20,12 +20,16 @@ export TICKTICK_DEBUG=1
 # Optional: customize delay between API calls (default: 500ms)
 export TICKTICK_TEST_DELAY_MS=1000
 
-# Run live tests only
-bun test tests/integration/live-api.test.ts
+# Run live tests (checks TICKTICK_TOKEN first, then uses a 60-second timeout)
+bun run test:live
 
-# Run with longer timeout for rate-limited environments
+# Or run the test file directly
 bun test tests/integration/live-api.test.ts --timeout 60000
 ```
+
+`bun run test:live` fails before running tests if the environment token is
+missing or receives an HTTP 401. The CLI's saved login (`tt auth status`) and
+`TICKTICK_TOKEN` are independent credentials.
 
 ## Getting a Session Token
 
