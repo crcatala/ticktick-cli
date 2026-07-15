@@ -203,6 +203,17 @@ Configuration is stored in `~/.config/ticktick-cli/config.json`:
 
 **Security Note:** By default, session tokens are stored in your system keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you use `--use-config`, the token is stored in plaintext in the config file with 600 permissions.
 
+### Linux headless and SSH sessions
+
+Linux keyring storage requires an active Secret Service/D-Bus session, which is commonly unavailable in headless or SSH shells. If login succeeds but saving credentials fails with an error such as `Cannot autolaunch D-Bus without X11 $DISPLAY`, log in with the explicit plaintext fallback:
+
+```bash
+tt auth login --use-config
+tt auth status
+```
+
+This stores the session token in `~/.config/ticktick-cli/config.json` with `0600` permissions instead of the system keyring. Use this only when a desktop keyring session is unavailable, and protect the file as you would a password.
+
 ### Web API compatibility
 
 This CLI uses TickTick's unofficial web API. If TickTick updates its web-client version before the CLI is updated, set `TICKTICK_WEB_VERSION` temporarily when running a command:
