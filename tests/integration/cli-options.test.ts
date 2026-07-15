@@ -3,6 +3,9 @@
  */
 import { describe, it, expect } from "bun:test";
 import { spawn } from "bun";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 describe("CLI validation option", () => {
   const CLI_PATH = "./src/index.ts";
@@ -52,6 +55,27 @@ describe("CLI validation option", () => {
     expect(stderr).toContain("strict");
     expect(stderr).toContain("warn");
     expect(stderr).toContain("off");
+  });
+
+  it("runs auth whoami as an alias for auth status", async () => {
+    const home = mkdtempSync(join(tmpdir(), "ticktick-cli-test-"));
+
+    try {
+      const proc = spawn([process.execPath, "run", CLI_PATH, "auth", "whoami"], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, HOME: home },
+      });
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      await proc.exited;
+
+      expect(proc.exitCode).toBe(0);
+      expect(stdout).toContain("Not logged in");
+      expect(stderr).not.toContain("too many arguments");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it("uses 'strict' as default when not specified", async () => {

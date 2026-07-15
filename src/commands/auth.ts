@@ -268,7 +268,7 @@ export function createAuthCommand(): Command {
       // Delegate to status command
       const statusCmd = auth.commands.find((c) => c.name() === "status");
       if (statusCmd) {
-        await statusCmd.parseAsync(["status", ...(options.json ? ["--json"] : [])], {
+        await statusCmd.parseAsync(options.json ? ["--json"] : [], {
           from: "user",
         });
       }
