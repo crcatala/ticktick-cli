@@ -183,7 +183,7 @@ export function createTaskCommand(): Command {
               Content: fullTask.content ?? "-",
               Project: truncateId(fullTask.projectId),
               Priority: formatPriority(fullTask.priority).replace(
-                new RegExp("\\u001B\\[[0-9;]*m", "g"),
+                new RegExp(`${String.fromCharCode(0x1b)}\\[[0-9;]*m`, "g"),
                 ""
               ),
               "Due Date": formatDate(fullTask.dueDate),
