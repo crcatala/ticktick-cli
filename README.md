@@ -274,9 +274,7 @@ bun run build
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-When submitting changes that affect users, please add an entry to the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md).
+This is a personally maintained project and does not accept code contributions, pull requests, or feature requests. Bug reports with a clear reproduction are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Releasing
 

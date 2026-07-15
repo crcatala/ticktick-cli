@@ -16,7 +16,8 @@
   "scripts": {
     "prepublishOnly": "bun run verify",
     "dev": "bun run src/index.ts",
-    "build": "tsc --build",
+    "clean": "node -e \"for (const path of ['dist', 'tsconfig.tsbuildinfo']) require('node:fs').rmSync(path, { recursive: true, force: true })\"",
+    "build": "bun run clean && tsc --build",
     "test": "bun --raw-test",
     "test:watch": "bun --raw-test --watch",
     "test:coverage": "bun --raw-test --coverage",
