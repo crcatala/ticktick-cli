@@ -579,6 +579,7 @@ export function createTaskCommand(): Command {
           } else if (getNoteOperationError(foundTask, "complete")) {
             printError(getNoteOperationError(foundTask, "complete")!);
             process.exit(1);
+            return;
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);
             process.exit(1);
@@ -671,6 +672,7 @@ export function createTaskCommand(): Command {
           } else if (getNoteOperationError(foundTask, "abandon")) {
             printError(getNoteOperationError(foundTask, "abandon")!);
             process.exit(1);
+            return;
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);
             process.exit(1);
