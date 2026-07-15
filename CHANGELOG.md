@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected `auth whoami` alias delegation so it no longer rejects arguments ([#73](https://github.com/crcatala/ticktick-cli/pull/73))
+
 ## [0.1.1] - 2026-07-15
 
 ### Added
