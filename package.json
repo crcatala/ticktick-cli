@@ -54,7 +54,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "commander": "^14.0.0",
+    "commander": "^15.0.0",
     "keytar": "^7.9.0",
     "zod": "^4.1.13"
   },
