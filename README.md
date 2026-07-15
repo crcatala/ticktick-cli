@@ -97,10 +97,10 @@ tt task add "Prepare presentation" \
 tt project add "Journal" --kind NOTE
 
 # Add a note (the project must be a NOTE list)
-tt note add "Daily reflection" --project NOTE_PROJECT_ID --content "What went well today"
+tt note add "Daily reflection" --project Journal --content "What went well today"
 
 # Convert between task and note (conversion clears task-only metadata)
-tt task convert-to-note TASK_ID
+tt task convert-to-note "Daily reflection"
 tt note convert-to-task NOTE_ID
 ```
 
@@ -176,14 +176,14 @@ fi
 | `tt task closed` | List completed/abandoned tasks |
 | `tt task subtask:add TASK PARENT` | Make task a subtask |
 | `tt task subtask:unset TASK` | Remove from parent |
-| `tt task convert-to-note ID` | Convert a task to a note |
-| `tt note add TITLE --project ID` | Create a note in a note list |
+| `tt task convert-to-note ID_OR_TITLE` | Convert a task to a note |
+| `tt note add TITLE --project NAME_OR_ID` | Create a note in a note list |
 | `tt note convert-to-task ID` | Convert a note to a task |
 | `tt project list` | List all projects |
-| `tt project show ID` | Show project details |
+| `tt project show ID_OR_NAME` | Show project details |
 | `tt project add NAME` | Create a new project |
-| `tt project edit ID` | Edit a project |
-| `tt project delete ID` | Delete project |
+| `tt project edit ID_OR_NAME` | Edit a project |
+| `tt project delete ID_OR_NAME` | Delete project |
 | `tt project inbox` | Show inbox project ID |
 | `tt group list` | List project groups |
 | `tt group add NAME` | Create a project group |
@@ -200,7 +200,7 @@ fi
 | `tt sync` | Fetch full state snapshot |
 | `tt trash empty` | Permanently delete all trashed items |
 
-Task and project references accept exact IDs, unambiguous ID prefixes, and case-insensitive exact names/titles. If multiple items match, use a full ID or add `--project PROJECT` to task lookup commands that support it.
+Task references accept exact IDs, unambiguous ID prefixes, and case-insensitive exact titles. Project references also accept unambiguous case-insensitive name prefixes. If multiple items match, use a full ID or add `--project PROJECT` to task lookup commands that support it.
 
 Use `tt COMMAND --help` for detailed options.
 

@@ -303,6 +303,14 @@ describe("task and project reference resolution", () => {
     expect(resolveTaskReference(tasks, "write DOCS").value?.id).toBe("task-def-789");
   });
 
+  it("prefers an exact title over conflicting ID prefixes", () => {
+    const result = resolveTaskReference([
+      createMockTask({ id: "abc-123", title: "abc" }),
+      createMockTask({ id: "abc-456", title: "Other" }),
+    ], "abc");
+    expect(result.value?.title).toBe("abc");
+  });
+
   it("does not match partial titles and reports ambiguous IDs or titles", () => {
     expect(resolveTaskReference(tasks, "Write").error).toBe("not_found");
     expect(resolveTaskReference(tasks, "task-abc").error).toBe("ambiguous");
@@ -319,5 +327,15 @@ describe("task and project reference resolution", () => {
     expect(resolveProjectReference(projects, "home").value?.id).toBe("home-456");
     expect(resolveProjectReference(projects, "HOME").value?.id).toBe("home-456");
     expect(resolveProjectReference(projects, "work").error).toBe("ambiguous");
+  });
+
+  it("resolves unique project-name prefixes and rejects ambiguous ones", () => {
+    const projects = [
+      createMockProject({ id: "one", name: "Work" }),
+      createMockProject({ id: "two", name: "Home" }),
+      createMockProject({ id: "three", name: "Homework" }),
+    ];
+    expect(resolveProjectReference(projects, "wor").value?.id).toBe("one");
+    expect(resolveProjectReference(projects, "hom").error).toBe("ambiguous");
   });
 });

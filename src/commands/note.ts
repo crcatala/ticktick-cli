@@ -36,7 +36,7 @@ export function createNoteCommand(): Command {
   note
     .command("add <title>")
     .description("Create a note in a note list")
-    .requiredOption("-p, --project <id>", "Note project ID")
+    .requiredOption("-p, --project <name>", "Note project name or ID")
     .option("-c, --content <text>", "Note content")
     .option("--json", "Output as JSON")
     .action(

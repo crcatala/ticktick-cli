@@ -19,17 +19,22 @@ function resolveReference<T extends { id?: string | null; title?: string | null;
   const exactId = items.find((item) => item.id === trimmed);
   if (exactId) return { value: exactId };
 
+  const lowerReference = trimmed.toLowerCase();
+  const textFor = (item: T) => label === "task" ? item.title : item.name;
+  const exactTextMatches = items.filter((item) => textFor(item)?.toLowerCase() === lowerReference);
+  if (exactTextMatches.length === 1) return { value: exactTextMatches[0] };
+  if (exactTextMatches.length > 1) return { error: "ambiguous", matches: exactTextMatches };
+
   const prefixMatches = items.filter((item) => item.id?.startsWith(trimmed));
   if (prefixMatches.length === 1) return { value: prefixMatches[0] };
   if (prefixMatches.length > 1) return { error: "ambiguous", matches: prefixMatches };
 
-  const lowerReference = trimmed.toLowerCase();
-  const nameMatches = items.filter((item) => {
-    const text = label === "task" ? item.title : item.name;
-    return text?.toLowerCase() === lowerReference;
-  });
-  if (nameMatches.length === 1) return { value: nameMatches[0] };
-  if (nameMatches.length > 1) return { error: "ambiguous", matches: nameMatches };
+  // Project names support unambiguous case-insensitive prefixes; task titles remain exact-only.
+  if (label === "project") {
+    const textPrefixMatches = items.filter((item) => textFor(item)?.toLowerCase().startsWith(lowerReference));
+    if (textPrefixMatches.length === 1) return { value: textPrefixMatches[0] };
+    if (textPrefixMatches.length > 1) return { error: "ambiguous", matches: textPrefixMatches };
+  }
 
   return { error: "not_found", matches: [] };
 }
@@ -39,7 +44,7 @@ export function resolveTaskReference(tasks: Task[], reference: string): Referenc
   return resolveReference(tasks, reference, "task");
 }
 
-/** Resolve a project by exact ID, unambiguous ID prefix, or exact name. */
+/** Resolve a project by exact ID, case-insensitive exact name, or unambiguous prefix. */
 export function resolveProjectReference(projects: Project[], reference: string): ReferenceResolution<Project> {
   return resolveReference(projects, reference, "project");
 }

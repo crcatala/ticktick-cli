@@ -90,7 +90,7 @@ export function createProjectCommand(): Command {
 
   // show command
   project
-    .command("show <id>")
+    .command("show <idOrName>")
     .description("Show project details")
     .option("--json", "Output as JSON")
     .action(
@@ -211,7 +211,7 @@ export function createProjectCommand(): Command {
 
   // edit command
   project
-    .command("edit <id>")
+    .command("edit <idOrName>")
     .description("Edit an existing project")
     .option("-n, --name <name>", "New name")
     .option("-c, --color <hex>", "New color (hex code)")
@@ -279,7 +279,7 @@ export function createProjectCommand(): Command {
 
   // delete command
   project
-    .command("delete <id>")
+    .command("delete <idOrName>")
     .description("Delete a project")
     .option("-f, --force", "Skip confirmation")
     .action(
