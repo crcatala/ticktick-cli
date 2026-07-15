@@ -486,6 +486,55 @@ describe("TickTickClient", () => {
     expect(body.update[0].repeatFlag).toBe("");
   });
 
+  test("convertTaskKind sends a normalized full-object update", async () => {
+    let capturedBody: unknown;
+
+    server.use(
+      http.get(`${API_BASE}/task/:taskId`, ({ params }) =>
+        HttpResponse.json({
+          id: params.taskId,
+          projectId: "project-456",
+          title: "Test Task",
+          content: "Keep this",
+          priority: 5,
+          progress: 50,
+          dueDate: "2026-07-20T04:00:00.000+0000",
+          tags: ["work"],
+          reminders: [{ id: "reminder-1", trigger: "TRIGGER:PT0S" }],
+          repeatFlag: "RRULE:FREQ=DAILY",
+          items: [{ id: "item-1", title: "Checklist item", status: 0, sortOrder: 0 }],
+        })
+      ),
+      http.post(`${API_BASE}/batch/task`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id2etag: { "task-123": "new-etag" } });
+      })
+    );
+
+    const client = await createClient();
+    const task = await client.convertTaskKind("task-123", "project-456", "NOTE");
+    const body = capturedBody as { update: Array<Record<string, unknown>> };
+
+    expect(body.update).toHaveLength(1);
+    expect(body.update[0]).toMatchObject({
+      id: "task-123",
+      projectId: "project-456",
+      kind: "NOTE",
+      content: "Keep this",
+      priority: 0,
+      progress: 0,
+      dueDate: null,
+      tags: [],
+      reminders: [],
+      repeatFlag: null,
+      repeatFirstDate: null,
+      repeatFrom: null,
+      assignee: null,
+      items: [],
+    });
+    expect(task.etag).toBe("new-etag");
+  });
+
   test("getTask fetches single task with projectId query param", async () => {
     let capturedUrl: string | undefined;
 

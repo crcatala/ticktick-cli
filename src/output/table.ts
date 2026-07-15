@@ -61,12 +61,14 @@ function stripAnsi(str: string): string {
 export function printTasksTable(tasks: Task[]): void {
   // Check if any task has a repeat pattern
   const hasRepeat = tasks.some((t) => t.repeatFlag);
+  const hasNotes = tasks.some((t) => t.kind === "NOTE");
 
   if (hasRepeat) {
-    const headers = ["ID", "Title", "Due", "Repeat", "Priority", "Project"];
+    const headers = ["ID", "Title", ...(hasNotes ? ["Type"] : []), "Due", "Repeat", "Priority", "Project"];
     const rows = tasks.map((task) => [
       truncateId(task.id),
       task.title?.slice(0, 40) ?? "-",
+      ...(hasNotes ? [task.kind === "NOTE" ? "Note" : "Task"] : []),
       formatDate(task.dueDate),
       formatRepeatFlag(task.repeatFlag) ?? "-",
       formatPriority(task.priority),
@@ -74,10 +76,11 @@ export function printTasksTable(tasks: Task[]): void {
     ]);
     renderTable(headers, rows);
   } else {
-    const headers = ["ID", "Title", "Due", "Priority", "Project"];
+    const headers = ["ID", "Title", ...(hasNotes ? ["Type"] : []), "Due", "Priority", "Project"];
     const rows = tasks.map((task) => [
       truncateId(task.id),
       task.title?.slice(0, 50) ?? "-",
+      ...(hasNotes ? [task.kind === "NOTE" ? "Note" : "Task"] : []),
       formatDate(task.dueDate),
       formatPriority(task.priority),
       truncateId(task.projectId),

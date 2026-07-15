@@ -172,6 +172,7 @@ export function createTaskCommand(): Command {
             {
               ID: fullTask.id ?? "-",
               Title: fullTask.title ?? "-",
+              Type: fullTask.kind === "NOTE" ? "Note" : "Task",
               Content: fullTask.content ?? "-",
               Project: truncateId(fullTask.projectId),
               Priority: formatPriority(fullTask.priority).replace(
@@ -190,6 +191,7 @@ export function createTaskCommand(): Command {
             [
               "ID",
               "Title",
+              "Type",
               "Content",
               "Project",
               "Priority",
@@ -567,6 +569,9 @@ export function createTaskCommand(): Command {
           const foundTask = findTaskById(allTasks, id);
           if (!foundTask) {
             notFound.push(id);
+          } else if (foundTask.kind === "NOTE") {
+            printError(`Notes cannot be completed. Convert it first: tt note convert-to-task ${foundTask.id}`);
+            process.exit(1);
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);
             process.exit(1);
@@ -656,6 +661,9 @@ export function createTaskCommand(): Command {
           const foundTask = findTaskById(allTasks, id);
           if (!foundTask) {
             notFound.push(id);
+          } else if (foundTask.kind === "NOTE") {
+            printError(`Notes cannot be abandoned. Convert it first: tt note convert-to-task ${foundTask.id}`);
+            process.exit(1);
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);
             process.exit(1);
@@ -959,6 +967,34 @@ export function createTaskCommand(): Command {
 
         await client.unsetTaskParent(foundTask.id);
         printSuccess(`Removed "${foundTask.title}" from parent`);
+      })
+    );
+
+  task
+    .command("convert-to-note <id>")
+    .description("Convert a task to a note")
+    .option("--json", "Output as JSON")
+    .action(
+      handleError(async function (this: Command, id: string, options) {
+        const globalOpts = getGlobalOptions(this);
+        const client = await getClient({ validation: globalOpts.validation });
+        const foundTask = findTaskById(await client.getTasks(), id);
+        if (!foundTask) {
+          printError(`Task not found: ${id}`);
+          process.exit(1);
+        }
+        if (foundTask.kind === "NOTE") {
+          printError(`Item is already a note: ${foundTask.title ?? foundTask.id}`);
+          process.exit(1);
+        }
+        if (!foundTask.projectId) {
+          printError(`Task has no project ID: ${id}`);
+          process.exit(1);
+        }
+
+        const converted = await client.convertTaskKind(foundTask.id, foundTask.projectId, "NOTE");
+        if (options.json) printJson(converted);
+        else printSuccess(`Converted to note: ${foundTask.title}`);
       })
     );
 

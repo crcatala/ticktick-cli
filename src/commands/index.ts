@@ -3,6 +3,7 @@
  */
 export { createAuthCommand } from "./auth.js";
 export { createTaskCommand } from "./task.js";
+export { createNoteCommand } from "./note.js";
 export { createProjectCommand } from "./project.js";
 export { createGroupCommand, createFolderCommand } from "./group.js";
 export { createTagCommand } from "./tag.js";
