@@ -200,6 +200,10 @@ describeLiveWithProject("Note API", ({ getClient, getTestProject }) => {
     const client = getClient();
     const testProject = getTestProject();
     const startDate = new Date(Date.now() + 86_400_000).toISOString();
+    const tagName = generateTestName("note-conversion-tag");
+    await client.createTag({ name: tagName });
+    testProject.trackTag(tagName);
+
     const task = await client.createTask({
       title: generateTestName("task-to-note"),
       projectId: testProject.getProjectId(),
@@ -209,6 +213,11 @@ describeLiveWithProject("Note API", ({ getClient, getTestProject }) => {
       dueDate: startDate,
       startDate,
       isAllDay: true,
+      tags: [tagName],
+      reminders: [{ id: "694044a2725bb97301a131ef", trigger: "TRIGGER:-PT15M" }],
+      repeatFlag: "RRULE:FREQ=DAILY;INTERVAL=1",
+      repeatFrom: "2",
+      repeatFirstDate: startDate,
     });
     testProject.trackTask(task.id);
 
@@ -228,6 +237,7 @@ describeLiveWithProject("Note API", ({ getClient, getTestProject }) => {
     expect(note.tags ?? []).toEqual([]);
     expect(note.items ?? []).toEqual([]);
     expect(note.reminders ?? []).toEqual([]);
+    expect(note.reminder).toBeFalsy();
     expect(note.repeatFlag).toBeFalsy();
   });
 });
