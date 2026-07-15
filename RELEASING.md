@@ -39,11 +39,13 @@ The package is public and is published as `@crcatala/ticktick-cli`. It installs 
 
 ## Release
 
-Preview the process first:
+Preview the local release steps first:
 
 ```bash
 bun run release:dry
 ```
+
+`release:dry` deliberately disables the npm and GitHub integrations, so it cannot publish or open GitHub's release form. Run `release` for the full process.
 
 Then release interactively:
 
