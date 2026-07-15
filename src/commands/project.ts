@@ -16,6 +16,49 @@ import {
 import { handleError } from "./errors.js";
 import { getGlobalOptions } from "../index.js";
 
+/**
+ * Resolve the folder-related intent from parsed `project edit` options.
+ *
+ * Commander exposes a negated `--no-folder` flag under the stripped option name
+ * (`options.folder === false`), never under a `noFolder` key. This helper turns
+ * the raw parsed options into a normalized intent so the action handler and
+ * tests share one source of truth.
+ *
+ * @throws if both a set (`--folder`/`--group`) and a clear (`--no-folder`/
+ *   `--clear-folder`/`--clear-group`) intent are supplied.
+ */
+export type FolderIntent = {
+  /** Folder id to move the project into, if any. */
+  set?: string;
+  /** Whether the project should be removed from its folder. */
+  clear: boolean;
+};
+
+export function resolveFolderIntent(options: {
+  folder?: string | boolean;
+  group?: string;
+  clearFolder?: boolean;
+  clearGroup?: boolean;
+}): FolderIntent {
+  const newFolder = options.folder || options.group;
+  // Commander stores the negated `--no-folder` value as `folder === false`.
+  const clear =
+    options.folder === false ||
+    options.clearFolder === true ||
+    options.clearGroup === true;
+
+  if (newFolder && clear) {
+    throw new Error(
+      "Cannot use both --folder/--group and --no-folder/--clear-folder"
+    );
+  }
+
+  return {
+    set: newFolder ? String(newFolder) : undefined,
+    clear,
+  };
+}
+
 export function createProjectCommand(): Command {
   const project = new Command("project").description("Manage projects");
 
@@ -189,16 +232,8 @@ export function createProjectCommand(): Command {
           process.exit(1);
         }
 
-        // Support both --folder and --group (folder takes precedence)
-        const newFolder = options.folder || options.group;
-        // Support --no-folder, --clear-folder, and --clear-group as aliases
-        const clearFolder = options.noFolder || options.clearFolder || options.clearGroup;
-
-        // Validate: can't use both set and clear
-        if (newFolder && clearFolder) {
-          printError("Cannot use both --folder/--group and --no-folder/--clear-folder");
-          process.exit(1);
-        }
+        // Resolve the folder intent (set vs. clear vs. none)
+        const folderIntent = resolveFolderIntent(options);
 
         const updateData: Parameters<typeof client.updateProject>[0] = {
           id: foundProject.id,
@@ -210,19 +245,20 @@ export function createProjectCommand(): Command {
         if (options.color) {
           updateData.color = options.color;
         }
-        if (newFolder) {
+        if (folderIntent.set) {
           // Validate that the folder exists
+          const folderId = folderIntent.set;
           const groups = await client.getProjectGroups();
           const foundFolder = groups.find(
-            (g) => g.id === newFolder || g.id?.startsWith(newFolder)
+            (g) => g.id === folderId || g.id?.startsWith(folderId)
           );
           if (!foundFolder) {
-            printError(`Folder not found: ${newFolder}`);
+            printError(`Folder not found: ${folderId}`);
             process.exit(1);
           }
           updateData.groupId = foundFolder.id;
         }
-        if (clearFolder) {
+        if (folderIntent.clear) {
           // The TickTick API uses "NONE" as a magic value to remove from folder
           updateData.groupId = "NONE";
         }
