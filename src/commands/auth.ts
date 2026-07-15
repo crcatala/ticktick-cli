@@ -243,7 +243,7 @@ export function createAuthCommand(): Command {
         if (options.json) {
           printJson({ authenticated: false });
         } else {
-          printInfo("Not logged in. Run 'ticktick auth login' to log in.");
+          printInfo("Not logged in. Run 'tt auth login' to log in.");
         }
         return;
       }
@@ -279,7 +279,7 @@ export function createAuthCommand(): Command {
           });
         } else {
           printWarning("Token may be expired");
-          printInfo("Run 'ticktick auth login' to re-authenticate.");
+          printInfo("Run 'tt auth login' to re-authenticate.");
         }
       }
     });

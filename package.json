@@ -1,5 +1,5 @@
 {
-  "name": "ticktick-cli",
+  "name": "@crcatala/ticktick-cli",
   "version": "0.1.0",
   "description": "Command-line interface for TickTick task management",
   "type": "module",
@@ -7,19 +7,26 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "ticktick": "./dist/index.js"
+    "tt": "./dist/index.js",
+    "ttcli": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "bun run verify",
     "dev": "bun run src/index.ts",
-    "build": "tsgo --build",
-    "build:binary": "bun build ./src/index.ts --compile --outfile dist/ticktick",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage",
+    "build": "tsc --build",
+    "test": "bun --raw-test",
+    "test:watch": "bun --raw-test --watch",
+    "test:coverage": "bun --raw-test --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src/",
     "schema:capture": "bun run scripts/schema-capture.ts",
+    "test:package": "bash scripts/test-package.sh",
+    "verify": "bun run test && bun run lint && bun run typecheck && bun run build && bun run test:package",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
     "release:prep": "./scripts/prep-release.sh"
   },
   "keywords": [
@@ -42,7 +49,7 @@
     "url": "https://github.com/crcatala/ticktick-cli/issues"
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
     "README.md",
     "LICENSE"
   ],
@@ -52,9 +59,11 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@release-it/keep-a-changelog": "^7.0.0",
     "@types/bun": "^1.1.14",
     "msw": "^2.12.4",
     "oxlint": "^1.39.0",
-    "typescript": "^6.0.0"
+    "release-it": "^19.2.3",
+    "typescript": "^7.0.2"
   }
 }

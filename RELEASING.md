@@ -1,161 +1,88 @@
 # Releasing
 
-This document describes how to prepare and publish releases for ticktick-cli.
+This project uses [release-it](https://github.com/release-it/release-it) for manual releases from a maintainer machine. A release builds and validates the npm package, updates the changelog and version, publishes to npm, pushes a signed-off release commit and tag, and creates a GitHub Release.
 
-## Overview
+## Prerequisites
 
-Releases are automated via GitHub Actions. When you push a version tag (e.g., `v0.2.0`), the workflow:
+- Push access to `crcatala/ticktick-cli`
+- An npm account with publish access to the `@crcatala` scope (`npm whoami`)
+- A GitHub token available as `GITHUB_TOKEN` with repository **Contents: read and write** permission, so release-it can create the GitHub Release
+- A clean checkout on `main`
 
-1. Builds binaries for all platforms (macOS, Linux, Windows, including Alpine/musl variants)
-2. Creates a GitHub Release with the binaries attached
-3. Extracts the relevant changelog section for release notes
-4. Publishes to npm (if `NPM_TOKEN` secret is configured)
+The package is public and is published as `@crcatala/ticktick-cli`. It installs the `tt` and `ttcli` commands.
 
-## Release Checklist
+## Before releasing
 
-### 1. Prepare the Changelog
+1. Pull the current main branch:
 
-Run the prep script to gather commits since the last release:
+   ```bash
+   git checkout main
+   git pull --ff-only
+   ```
 
-```bash
-./scripts/prep-release.sh
-```
+2. Prepare and update the changelog. The helper lists changes since the last tag:
 
-This outputs:
-- List of commits since last tag
-- Merged PRs
-- An AI prompt template for generating changelog entries
+   ```bash
+   bun run release:prep
+   ```
 
-**Option A: Use AI to generate entries**
+   Add user-facing entries beneath `## [Unreleased]` in `CHANGELOG.md`, using [Keep a Changelog](https://keepachangelog.com/) sections such as Added, Changed, Fixed, Removed, or Security.
 
-Copy the script output and paste it to your AI assistant to generate changelog entries in [Keep a Changelog](https://keepachangelog.com/) format.
+3. Run the complete local verification suite:
 
-**Option B: Manual**
+   ```bash
+   bun run verify
+   ```
 
-Review commits and write entries yourself.
+   This runs tests, linting, type checking, the JavaScript build, and an install smoke test of the exact `npm pack` tarball.
 
-### 2. Update CHANGELOG.md
+## Release
 
-Add a new version section below `[Unreleased]`:
-
-```markdown
-## [Unreleased]
-
-## [0.2.0] - 2024-12-20
-
-### Added
-- New feature description ([#123](https://github.com/USER/REPO/pull/123))
-
-### Changed
-- Modified behavior description
-
-### Fixed
-- Bug fix description
-
-### Removed
-- Removed feature description
-
-## [0.1.0] - 2024-12-17
-...
-```
-
-**Categories** (only include sections that have entries):
-- **Added** - New features
-- **Changed** - Changes to existing functionality
-- **Deprecated** - Features that will be removed
-- **Removed** - Removed features
-- **Fixed** - Bug fixes
-- **Security** - Security fixes
-
-### 3. Bump Version and Tag
-
-Use npm to bump the version, which updates `package.json` and creates a git tag:
+Preview the process first:
 
 ```bash
-# Patch release (0.1.0 -> 0.1.1)
-npm version patch
-
-# Minor release (0.1.0 -> 0.2.0)
-npm version minor
-
-# Major release (0.1.0 -> 1.0.0)
-npm version major
-
-# Pre-release (for testing)
-npm version prerelease --preid=alpha  # 0.1.0 -> 0.1.1-alpha.0
+bun run release:dry
 ```
 
-Or manually:
-```bash
-# 1. Edit version in package.json
-# 2. Commit and tag
-git add package.json CHANGELOG.md
-git commit -m "Release v0.2.0"
-git tag v0.2.0
-```
-
-### 4. Push to Trigger Release
+Then release interactively:
 
 ```bash
-git push --follow-tags
+export GITHUB_TOKEN=github_pat_... # if not already configured
+bun run release
 ```
 
-This pushes both the commit and the tag, triggering the release workflow.
+Release-it prompts for the version bump and then:
 
-### 5. Verify Release
+1. validates the clean `main` checkout and runs `bun run verify`;
+2. bumps `package.json` and moves the changelog's Unreleased entries into the new version;
+3. builds `dist/`;
+4. commits and tags `vX.Y.Z`;
+5. publishes `@crcatala/ticktick-cli` publicly to npm;
+6. pushes the commit and tag; and
+7. creates a GitHub Release using the changelog notes.
 
-1. Check the [Actions tab](../../actions) for workflow status
-2. Check the [Releases page](../../releases) for the new release
-3. Verify binaries are attached and release notes look correct
-
-## Testing Releases (Pre-release)
-
-For testing the release process without a "real" release:
+Useful recovery options:
 
 ```bash
-# Create an alpha/beta tag
-git tag v0.2.0-alpha.1
-git push --tags
+# Skip npm publishing if it already succeeded in a partial release
+bun run release -- --no-npm
+
+# Skip GitHub Release creation
+bun run release -- --no-github
+
+# Release a specific version without the bump prompt
+bun run release -- 0.1.1
+
+# Publish a prerelease
+bun run release -- --preRelease=alpha
 ```
 
-Or use the manual workflow trigger:
-1. Go to Actions → Release workflow
-2. Click "Run workflow"
-3. Enter the tag (e.g., `v0.2.0-alpha.1`)
+## Verify the release
 
-## Platform Binaries
-
-Each release includes binaries for:
-
-| Archive | Platform | Use Case |
-|---------|----------|----------|
-| `ticktick-darwin-arm64.tar.gz` | macOS Apple Silicon | M1/M2/M3 Macs |
-| `ticktick-darwin-x64.tar.gz` | macOS Intel | Older Macs |
-| `ticktick-linux-x64.tar.gz` | Linux x64 (glibc) | Ubuntu, Debian, Fedora, etc. |
-| `ticktick-linux-x64-musl.tar.gz` | Linux x64 (musl) | Alpine Linux, Docker |
-| `ticktick-linux-arm64.tar.gz` | Linux ARM64 (glibc) | Raspberry Pi 4, AWS Graviton |
-| `ticktick-linux-arm64-musl.tar.gz` | Linux ARM64 (musl) | Alpine on ARM |
-| `ticktick-windows-x64.zip` | Windows x64 | Windows 10/11 |
-
-## npm Publishing
-
-To enable npm publishing:
-
-1. Create an npm access token at [npmjs.com](https://www.npmjs.com/) → Access Tokens → Generate New Token (Automation)
-2. Add it as a repository secret named `NPM_TOKEN` in GitHub Settings → Secrets → Actions
-
-The workflow will automatically publish to npm when the secret is configured.
-
-## For Contributors
-
-When submitting a PR with user-facing changes, please add an entry to the `## [Unreleased]` section of `CHANGELOG.md`. This helps maintainers prepare releases faster.
-
-Example:
-```markdown
-## [Unreleased]
-
-### Added
-- Add `--verbose` flag for detailed output ([#42](https://github.com/USER/REPO/pull/42))
+```bash
+npm view @crcatala/ticktick-cli
+npx @crcatala/ticktick-cli@latest --version
+npx @crcatala/ticktick-cli@latest --help
 ```
 
-If you forget, no worries—maintainers can add it during release prep.
+Published npm versions are immutable. If a release has a defect, publish a corrective version rather than replacing the existing one.

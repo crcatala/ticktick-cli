@@ -1057,7 +1057,7 @@ export interface GetClientOptions {
 export async function getClient(options: GetClientOptions = {}): Promise<TickTickClient> {
   const auth = await getAuth();
   if (!auth) {
-    throw new AuthError("Not logged in. Run 'ticktick auth login' first.");
+    throw new AuthError("Not logged in. Run 'tt auth login' first.");
   }
   // Allow debug mode via environment variable
   const debugMode = options.debug || process.env.TICKTICK_DEBUG === "1";

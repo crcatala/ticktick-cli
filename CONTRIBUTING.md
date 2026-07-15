@@ -61,24 +61,24 @@ bun run dev sync
 # TypeScript compilation
 bun run build
 
-# Create standalone binary
-bun run build:binary
+# Build the JavaScript package output
+bun run build
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-bun test
+bun run test
 
 # Run tests in watch mode
-bun test --watch
+bun run test:watch
 
 # Run with coverage
-bun test --coverage
+bun run test:coverage
 
-# Run specific test file
-bun test src/commands/task.test.ts
+# Run a specific test file
+bun --raw-test src/commands/task.test.ts
 ```
 
 ### Type Checking
@@ -140,7 +140,7 @@ Write clear, concise commit messages:
 
 1. Create a new branch from `main`
 2. Make your changes
-3. Ensure all tests pass: `bun test`
+3. Ensure all tests pass: `bun run test`
 4. Ensure type checking passes: `bun run typecheck`
 5. Update documentation if needed
 6. Submit a pull request
@@ -158,7 +158,7 @@ Write clear, concise commit messages:
 ### Bug Reports
 
 Include:
-- ticktick-cli version (`ticktick --version`)
+- ticktick-cli version (`tt --version`)
 - Operating system and version
 - Steps to reproduce
 - Expected vs actual behavior

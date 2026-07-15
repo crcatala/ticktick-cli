@@ -28,7 +28,7 @@ export function handleError<T extends unknown[]>(
 
       if (error instanceof ApiError) {
         if (error.status === 401) {
-          printError("Session expired. Run 'ticktick auth login' to re-authenticate.");
+          printError("Session expired. Run 'tt auth login' to re-authenticate.");
         } else {
           printError(`API error: ${error.message}`);
         }
