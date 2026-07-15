@@ -218,11 +218,13 @@ describeLiveWithProject("Note API", ({ getClient, getTestProject }) => {
     expect(note.kind).toBe("NOTE");
     expect(note.title).toBe(task.title);
     expect(note.content).toBe("Retained content");
-    expect(note.startDate).toBe(startDate);
+    // TickTick normalizes UTC from `Z` to `+0000` in its response.
+    expect(new Date(note.startDate ?? "").toISOString()).toBe(startDate);
     expect(note.isAllDay).toBe(true);
     expect(note.priority).toBe(0);
     expect(note.progress).toBe(0);
-    expect(note.dueDate).toBeFalsy();
+    // Although the update payload clears dueDate, TickTick currently retains a
+    // due date when a start date is also present. Do not assert its outcome.
     expect(note.tags ?? []).toEqual([]);
     expect(note.items ?? []).toEqual([]);
     expect(note.reminders ?? []).toEqual([]);
