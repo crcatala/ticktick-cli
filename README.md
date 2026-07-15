@@ -249,7 +249,7 @@ bun run typecheck
 # Run tests
 bun run test
 
-# Build binary
+# Build JavaScript package output
 bun run build
 ```
 

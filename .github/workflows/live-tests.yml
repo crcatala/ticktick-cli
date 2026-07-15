@@ -86,11 +86,12 @@ jobs:
           fi
 
       - name: Create pending check
+        id: create_check
         if: inputs.pr_sha != '' && env.SKIP_TESTS != 'true'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
         with:
           script: |
-            await github.rest.checks.create({
+            const check = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'Live API Tests',
@@ -102,6 +103,7 @@ jobs:
                 summary: '[View live logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})',
               },
             });
+            core.setOutput('id', check.data.id);
 
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -125,16 +127,15 @@ jobs:
         run: bun run test -- tests/integration/live-api.test.ts --timeout 60000
 
       - name: Update check
-        if: always() && inputs.pr_sha != '' && env.SKIP_TESTS != 'true'
+        if: always() && inputs.pr_sha != '' && env.SKIP_TESTS != 'true' && steps.create_check.outputs.id != ''
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
         with:
           script: |
             const success = '${{ steps.tests.outcome }}' === 'success';
-            await github.rest.checks.create({
+            await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Live API Tests',
-              head_sha: '${{ inputs.pr_sha }}',
+              check_run_id: Number('${{ steps.create_check.outputs.id }}'),
               status: 'completed',
               conclusion: success ? 'success' : 'failure',
               details_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
