@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Package is prepared for npm publication as `@crcatala/ticktick-cli`, with `tt` and `ttcli` command aliases.
+- Refreshed the private web API device fingerprint and added a `TICKTICK_WEB_VERSION` compatibility override.
+
 ## [0.1.0] - 2024-12-17
 
 ### Added

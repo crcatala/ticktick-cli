@@ -43,7 +43,7 @@ export function getGlobalOptions(cmd: Command): GlobalOptions {
 const program = new Command();
 
 program
-  .name("ticktick")
+  .name("tt")
   .description("Command-line interface for TickTick")
   .version(packageJson.version)
   .addOption(

@@ -50,6 +50,66 @@ interface RequestOptions {
   token?: string;
 }
 
+export const DEFAULT_TICKTICK_WEB_VERSION = 8121;
+
+const WEB_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
+
+/**
+ * Return the TickTick web-app version used in the X-Device fingerprint.
+ * The undocumented V2 API can change this requirement independently of CLI
+ * releases, so allow a temporary environment override for compatibility.
+ */
+export function getTickTickWebVersion(
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const configuredVersion = env.TICKTICK_WEB_VERSION?.trim();
+  if (!configuredVersion || !/^\d+$/.test(configuredVersion)) {
+    return DEFAULT_TICKTICK_WEB_VERSION;
+  }
+
+  const version = Number(configuredVersion);
+  return Number.isSafeInteger(version) && version > 0
+    ? version
+    : DEFAULT_TICKTICK_WEB_VERSION;
+}
+
+/** Create the browser-shaped X-Device payload required by TickTick's V2 API. */
+export function createTickTickDeviceHeader(
+  deviceId: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return JSON.stringify({
+    platform: "web",
+    os: "macOS 10.15.7",
+    device: "Chrome 150.0.0.0",
+    name: "",
+    version: getTickTickWebVersion(env),
+    id: deviceId,
+    channel: "website",
+    campaign: "",
+    websocket: "",
+  });
+}
+
+/** Build non-secret browser-compatible headers for the undocumented V2 API. */
+export function createTickTickWebHeaders(
+  deviceId: string,
+  token?: string,
+  env: NodeJS.ProcessEnv = process.env
+): Record<string, string> {
+  return {
+    Accept: "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Content-Type": "application/json",
+    "User-Agent": WEB_USER_AGENT,
+    "X-CSRFToken": "",
+    "X-Device": createTickTickDeviceHeader(deviceId, env),
+    "X-Requested-With": "XMLHttpRequest",
+    ...(token ? { Cookie: `t=${token}` } : {}),
+  };
+}
+
 /**
  * Generate a unique device ID for the X-Device header.
  * TickTick uses this to identify client sessions.
@@ -135,16 +195,7 @@ export class TickTickClient {
    * TickTick's V2 API requires browser-like headers and session cookie.
    */
   private get headers(): Record<string, string> {
-    return {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
-      "Cookie": `t=${this.token}`,
-      "X-Device": JSON.stringify({
-        platform: "web",
-        version: 6430,
-        id: this.deviceId,
-      }),
-    };
+    return createTickTickWebHeaders(this.deviceId, this.token);
   }
 
   /**
@@ -1057,7 +1108,7 @@ export interface GetClientOptions {
 export async function getClient(options: GetClientOptions = {}): Promise<TickTickClient> {
   const auth = await getAuth();
   if (!auth) {
-    throw new AuthError("Not logged in. Run 'ticktick auth login' first.");
+    throw new AuthError("Not logged in. Run 'tt auth login' first.");
   }
   // Allow debug mode via environment variable
   const debugMode = options.debug || process.env.TICKTICK_DEBUG === "1";
@@ -1090,17 +1141,8 @@ export async function login(
 
   const url = `${BASE_URL}${ENDPOINTS.LOGIN}`;
   // TickTick's undocumented V2 API requires browser-like headers.
-  // X-Device identifies the client; version 6430 is the current web app version.
   const deviceId = generateDeviceId();
-  const headers: Record<string, string> = {
-    "User-Agent": "Mozilla/5.0 (rv:145.0) Firefox/145.0",
-    "Content-Type": "application/json",
-    "X-Device": JSON.stringify({
-      platform: "web",
-      version: 6430,
-      id: deviceId,
-    }),
-  };
+  const headers = createTickTickWebHeaders(deviceId);
 
   if (verbose) {
     console.log(`[debug] POST ${url}`);

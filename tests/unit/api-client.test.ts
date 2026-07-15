@@ -14,6 +14,49 @@ describe("TickTickClient", () => {
     mock.restore();
   });
 
+  test("creates a browser-compatible device fingerprint with the default web version", async () => {
+    const {
+      createTickTickDeviceHeader,
+      createTickTickWebHeaders,
+      DEFAULT_TICKTICK_WEB_VERSION,
+    } = await import("../../src/api/client.js");
+    const deviceId = "0123456789abcdef01234567";
+    const device = JSON.parse(createTickTickDeviceHeader(deviceId));
+    const headers = createTickTickWebHeaders(deviceId, "session-token");
+
+    expect(device).toEqual({
+      platform: "web",
+      os: "macOS 10.15.7",
+      device: "Chrome 150.0.0.0",
+      name: "",
+      version: DEFAULT_TICKTICK_WEB_VERSION,
+      id: deviceId,
+      channel: "website",
+      campaign: "",
+      websocket: "",
+    });
+    expect(headers["User-Agent"]).toContain("Chrome/150.0.0.0");
+    expect(headers["X-Requested-With"]).toBe("XMLHttpRequest");
+    expect(headers.Cookie).toBe("t=session-token");
+  });
+
+  test("uses a valid TICKTICK_WEB_VERSION override", async () => {
+    const { createTickTickDeviceHeader, DEFAULT_TICKTICK_WEB_VERSION } =
+      await import("../../src/api/client.js");
+    const deviceId = "0123456789abcdef01234567";
+
+    expect(
+      JSON.parse(
+        createTickTickDeviceHeader(deviceId, { TICKTICK_WEB_VERSION: "9001" })
+      ).version
+    ).toBe(9001);
+    expect(
+      JSON.parse(
+        createTickTickDeviceHeader(deviceId, { TICKTICK_WEB_VERSION: "invalid" })
+      ).version
+    ).toBe(DEFAULT_TICKTICK_WEB_VERSION);
+  });
+
   test("request retries on 429 with exponential backoff", async () => {
     let callCount = 0;
     server.use(

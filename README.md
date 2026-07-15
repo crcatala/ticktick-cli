@@ -4,54 +4,26 @@ A command-line interface for the [TickTick](https://ticktick.com) task managemen
 
 ## Installation
 
-### Quick Install (Recommended)
+Requires Node.js 20+:
 
-**npm** (requires Node.js 20+):
 ```bash
-npm install -g ticktick-cli
+npm install -g @crcatala/ticktick-cli
 ```
 
-**Shell script** (downloads binary):
-```bash
-curl -fsSL https://raw.githubusercontent.com/crcatala/ticktick-cli/main/scripts/install.sh | bash
-```
-
-<details>
-<summary><strong>Manual Download</strong></summary>
-
-Download the pre-built binary for your platform from the [releases page](https://github.com/crcatala/ticktick-cli/releases):
-
-| Platform | Archive |
-|----------|---------|
-| macOS (Apple Silicon) | `ticktick-darwin-arm64.tar.gz` |
-| macOS (Intel) | `ticktick-darwin-x64.tar.gz` |
-| Linux x64 | `ticktick-linux-x64.tar.gz` |
-| Linux x64 (Alpine/musl) | `ticktick-linux-x64-musl.tar.gz` |
-| Linux ARM64 | `ticktick-linux-arm64.tar.gz` |
-| Linux ARM64 (Alpine/musl) | `ticktick-linux-arm64-musl.tar.gz` |
-| Windows x64 | `ticktick-windows-x64.zip` |
-
-Extract and move the binary to a directory in your PATH:
-```bash
-tar -xzf ticktick-*.tar.gz
-mv ticktick ~/.local/bin/  # or /usr/local/bin/
-```
-
-</details>
+The package provides two equivalent commands: `tt` and `ttcli`. `tt` is used throughout this guide.
 
 <details>
 <summary><strong>Build from Source</strong></summary>
 
-Requires [Bun](https://bun.sh) v1.0+
+Requires Node.js 20+ and [Bun](https://bun.sh):
 
 ```bash
 git clone https://github.com/crcatala/ticktick-cli.git
 cd ticktick-cli
 bun install
 bun run build
+node dist/index.js --help
 ```
-
-The compiled binary will be at `./dist/ticktick`.
 
 </details>
 
@@ -60,31 +32,31 @@ The compiled binary will be at `./dist/ticktick`.
 ### 1. Authenticate
 
 ```bash
-ticktick auth login
+tt auth login
 ```
 
 You'll be prompted for your TickTick username and password. If you have 2FA enabled, provide your TOTP code:
 
 ```bash
-ticktick auth login --totp-code 123456
+tt auth login --totp-code 123456
 ```
 
 By default, your session token is stored securely in your system keyring. If you prefer plaintext storage (not recommended), use:
 
 ```bash
-ticktick auth login --use-config
+tt auth login --use-config
 ```
 
 ### 2. List Your Tasks
 
 ```bash
-ticktick task list
+tt task list
 ```
 
 ### 3. Add a Task
 
 ```bash
-ticktick task add "Buy groceries" --priority high --due tomorrow
+tt task add "Buy groceries" --priority high --due tomorrow
 ```
 
 ## Common Workflows
@@ -93,23 +65,23 @@ ticktick task add "Buy groceries" --priority high --due tomorrow
 
 ```bash
 # See all active tasks
-ticktick task list
+tt task list
 
 # See tasks in a specific project
-ticktick task list --project PROJECT_ID
+tt task list --project PROJECT_ID
 
 # Mark a task as done
-ticktick task done TASK_ID
+tt task done TASK_ID
 ```
 
 ### Quick Task Entry
 
 ```bash
 # Simple task
-ticktick task add "Call mom"
+tt task add "Call mom"
 
 # Task with all options
-ticktick task add "Prepare presentation" \
+tt task add "Prepare presentation" \
   --project PROJECT_ID \
   --priority high \
   --due 2025-01-15 \
@@ -122,39 +94,39 @@ ticktick task add "Prepare presentation" \
 
 ```bash
 # List all projects
-ticktick project list
+tt project list
 
 # Create a new project
-ticktick project add "Home Renovation" --color "#FF5733"
+tt project add "Home Renovation" --color "#FF5733"
 
 # Show inbox ID
-ticktick project inbox
+tt project inbox
 ```
 
 ### Working with Tags
 
 ```bash
 # List all tags
-ticktick tag list
+tt tag list
 
 # Create a tag
-ticktick tag add "work"
+tt tag add "work"
 
 # Create a child tag
-ticktick tag add "urgent" --parent "work"
+tt tag add "urgent" --parent "work"
 
 # Rename a tag
-ticktick tag rename "old-name" "new-name"
+tt tag rename "old-name" "new-name"
 ```
 
 ### Data Export
 
 ```bash
 # Export all data as JSON
-ticktick sync --json > ticktick-backup.json
+tt sync --json > ticktick-backup.json
 
 # Export just tasks
-ticktick task list --json > tasks.json
+tt task list --json > tasks.json
 ```
 
 ### Scripting / Automation
@@ -163,10 +135,10 @@ All commands support `--json` output for easy parsing:
 
 ```bash
 # Get task IDs for scripting
-ticktick task list --json | jq '.[].id'
+tt task list --json | jq '.[].id'
 
 # Check auth status in scripts
-if ticktick auth status --json | jq -e '.authenticated' > /dev/null; then
+if tt auth status --json | jq -e '.authenticated' > /dev/null; then
   echo "Logged in"
 fi
 ```
@@ -175,43 +147,43 @@ fi
 
 | Command | Description |
 |---------|-------------|
-| `ticktick auth login` | Log in to TickTick |
-| `ticktick auth logout` | Log out and clear credentials |
-| `ticktick auth status` | Show authentication status |
-| `ticktick auth whoami` | Alias for status |
-| `ticktick task list` | List active tasks |
-| `ticktick task show ID` | Show task details |
-| `ticktick task add TITLE` | Create a new task |
-| `ticktick task edit ID` | Edit an existing task |
-| `ticktick task done ID` | Mark task as complete |
-| `ticktick task abandon ID` | Mark task as abandoned |
-| `ticktick task reopen ID` | Reopen closed task |
-| `ticktick task delete ID` | Delete task |
-| `ticktick task closed` | List completed/abandoned tasks |
-| `ticktick task subtask:add TASK PARENT` | Make task a subtask |
-| `ticktick task subtask:unset TASK` | Remove from parent |
-| `ticktick project list` | List all projects |
-| `ticktick project show ID` | Show project details |
-| `ticktick project add NAME` | Create a new project |
-| `ticktick project edit ID` | Edit a project |
-| `ticktick project delete ID` | Delete project |
-| `ticktick project inbox` | Show inbox project ID |
-| `ticktick group list` | List project groups |
-| `ticktick group add NAME` | Create a project group |
-| `ticktick group edit ID` | Edit a project group |
-| `ticktick group delete ID` | Delete project group |
-| `ticktick tag list` | List all tags |
-| `ticktick tag add NAME` | Create a tag |
-| `ticktick tag rename OLD NEW` | Rename a tag |
-| `ticktick tag edit NAME` | Edit tag color/parent |
-| `ticktick tag delete NAME` | Delete a tag |
-| `ticktick user profile` | Show user profile |
-| `ticktick user status` | Show subscription status |
-| `ticktick user stats` | Show usage statistics |
-| `ticktick sync` | Fetch full state snapshot |
-| `ticktick trash empty` | Permanently delete all trashed items |
+| `tt auth login` | Log in to TickTick |
+| `tt auth logout` | Log out and clear credentials |
+| `tt auth status` | Show authentication status |
+| `tt auth whoami` | Alias for status |
+| `tt task list` | List active tasks |
+| `tt task show ID` | Show task details |
+| `tt task add TITLE` | Create a new task |
+| `tt task edit ID` | Edit an existing task |
+| `tt task done ID` | Mark task as complete |
+| `tt task abandon ID` | Mark task as abandoned |
+| `tt task reopen ID` | Reopen closed task |
+| `tt task delete ID` | Delete task |
+| `tt task closed` | List completed/abandoned tasks |
+| `tt task subtask:add TASK PARENT` | Make task a subtask |
+| `tt task subtask:unset TASK` | Remove from parent |
+| `tt project list` | List all projects |
+| `tt project show ID` | Show project details |
+| `tt project add NAME` | Create a new project |
+| `tt project edit ID` | Edit a project |
+| `tt project delete ID` | Delete project |
+| `tt project inbox` | Show inbox project ID |
+| `tt group list` | List project groups |
+| `tt group add NAME` | Create a project group |
+| `tt group edit ID` | Edit a project group |
+| `tt group delete ID` | Delete project group |
+| `tt tag list` | List all tags |
+| `tt tag add NAME` | Create a tag |
+| `tt tag rename OLD NEW` | Rename a tag |
+| `tt tag edit NAME` | Edit tag color/parent |
+| `tt tag delete NAME` | Delete a tag |
+| `tt user profile` | Show user profile |
+| `tt user status` | Show subscription status |
+| `tt user stats` | Show usage statistics |
+| `tt sync` | Fetch full state snapshot |
+| `tt trash empty` | Permanently delete all trashed items |
 
-Use `ticktick COMMAND --help` for detailed options.
+Use `tt COMMAND --help` for detailed options.
 
 ## Configuration
 
@@ -231,11 +203,32 @@ Configuration is stored in `~/.config/ticktick-cli/config.json`:
 
 **Security Note:** By default, session tokens are stored in your system keyring (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you use `--use-config`, the token is stored in plaintext in the config file with 600 permissions.
 
+### Linux headless and SSH sessions
+
+Linux keyring storage requires an active Secret Service/D-Bus session, which is commonly unavailable in headless or SSH shells. If login succeeds but saving credentials fails with an error such as `Cannot autolaunch D-Bus without X11 $DISPLAY`, log in with the explicit plaintext fallback:
+
+```bash
+tt auth login --use-config
+tt auth status
+```
+
+This stores the session token in `~/.config/ticktick-cli/config.json` with `0600` permissions instead of the system keyring. Use this only when a desktop keyring session is unavailable, and protect the file as you would a password.
+
+### Web API compatibility
+
+This CLI uses TickTick's unofficial web API. If TickTick updates its web-client version before the CLI is updated, set `TICKTICK_WEB_VERSION` temporarily when running a command:
+
+```bash
+TICKTICK_WEB_VERSION=8121 tt auth login
+```
+
+The built-in default is `8121`. This setting is only a compatibility escape hatch; do not set it unless you have verified the current web client's `X-Device.version`.
+
 ## Known Limitations
 
 ### Single Task Lookup
 
-The TickTick V2 API does not support fetching a single task by ID directly. Commands like `ticktick task show` fetch all tasks and filter client-side. This is efficient for most users but may be slow for accounts with thousands of tasks.
+The TickTick V2 API does not support fetching a single task by ID directly. Commands like `tt task show` fetch all tasks and filter client-side. This is efficient for most users but may be slow for accounts with thousands of tasks.
 
 ### API Stability
 
@@ -254,9 +247,9 @@ bun run dev [command]
 bun run typecheck
 
 # Run tests
-bun test
+bun run test
 
-# Build binary
+# Build JavaScript package output
 bun run build
 ```
 
