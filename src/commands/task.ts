@@ -34,6 +34,13 @@ import {
 } from "./task-filters.js";
 import { getGlobalOptions } from "../index.js";
 
+/** Return an actionable message when a task-only operation targets a note. */
+export function getNoteOperationError(task: Task, operation: "complete" | "abandon"): string | undefined {
+  if (task.kind !== "NOTE") return undefined;
+  const verb = operation === "complete" ? "completed" : "abandoned";
+  return `Notes cannot be ${verb}. Convert it first: tt note convert-to-task ${task.id}`;
+}
+
 export function createTaskCommand(): Command {
   const task = new Command("task").description("Manage tasks");
 
@@ -569,8 +576,8 @@ export function createTaskCommand(): Command {
           const foundTask = findTaskById(allTasks, id);
           if (!foundTask) {
             notFound.push(id);
-          } else if (foundTask.kind === "NOTE") {
-            printError(`Notes cannot be completed. Convert it first: tt note convert-to-task ${foundTask.id}`);
+          } else if (getNoteOperationError(foundTask, "complete")) {
+            printError(getNoteOperationError(foundTask, "complete")!);
             process.exit(1);
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);
@@ -661,8 +668,8 @@ export function createTaskCommand(): Command {
           const foundTask = findTaskById(allTasks, id);
           if (!foundTask) {
             notFound.push(id);
-          } else if (foundTask.kind === "NOTE") {
-            printError(`Notes cannot be abandoned. Convert it first: tt note convert-to-task ${foundTask.id}`);
+          } else if (getNoteOperationError(foundTask, "abandon")) {
+            printError(getNoteOperationError(foundTask, "abandon")!);
             process.exit(1);
           } else if (!foundTask.projectId) {
             printError(`Task has no projectId: ${id}`);

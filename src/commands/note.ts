@@ -1,12 +1,27 @@
 /** Note commands. */
 import { Command } from "commander";
 import { getClient } from "../api/client.js";
+import type { Project } from "../api/types.js";
 import { printError, printInfo, printJson, printSuccess } from "../output/index.js";
 import { getGlobalOptions } from "../index.js";
 import { handleError } from "./errors.js";
 
 function findByIdOrPrefix<T extends { id?: string | null }>(items: T[], id: string): T | undefined {
   return items.find((item) => item.id === id || item.id?.startsWith(id));
+}
+
+export type NoteProjectResolution =
+  | { project: Project; error?: never }
+  | { project?: never; error: string };
+
+/** Resolve a project reference and ensure it is a TickTick note list. */
+export function resolveNoteProject(projects: Project[], id: string): NoteProjectResolution {
+  const project = findByIdOrPrefix(projects, id);
+  if (!project) return { error: `Project not found: ${id}` };
+  if (project.kind !== "NOTE") {
+    return { error: `Project "${project.name ?? project.id}" is not a note list` };
+  }
+  return { project };
 }
 
 export function createNoteCommand(): Command {
@@ -22,18 +37,16 @@ export function createNoteCommand(): Command {
       handleError(async function (this: Command, title: string, options) {
         const globalOpts = getGlobalOptions(this);
         const client = await getClient({ validation: globalOpts.validation });
-        const projects = await client.getProjects();
-        const project = findByIdOrPrefix(projects, options.project);
-
-        if (!project) {
-          printError(`Project not found: ${options.project}`);
+        const resolution = resolveNoteProject(await client.getProjects(), options.project);
+        if (resolution.error) {
+          printError(resolution.error);
+          if (resolution.error.includes("is not a note list")) {
+            printInfo("Create one with: tt project add <name> --kind NOTE");
+          }
           process.exit(1);
+          return;
         }
-        if (project.kind !== "NOTE") {
-          printError(`Project "${project.name ?? project.id}" is not a note list`);
-          printInfo("Create one with: tt project add <name> --kind NOTE");
-          process.exit(1);
-        }
+        const project = resolution.project!;
 
         const created = await client.createTask({
           title,
