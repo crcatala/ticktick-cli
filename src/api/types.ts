@@ -21,8 +21,10 @@ export type {
   LoginResponse,
 } from "../schemas/index.js";
 
-// Import Reminder type for use within this file
-import type { Reminder } from "../schemas/index.js";
+// Import response types for use within request helpers.
+import type { Reminder, Task } from "../schemas/index.js";
+
+export type TaskKind = "TEXT" | "NOTE";
 
 // ============================================================
 // Input types for create/update operations
@@ -34,7 +36,12 @@ export interface TaskCreate {
   title: string;
   projectId?: string;
   content?: string;
+  /** `TEXT` for a task, `NOTE` for a note. */
+  kind?: TaskKind;
   priority?: number;
+  progress?: number;
+  status?: number;
+  items?: ChecklistItemInput[];
   dueDate?: string;
   startDate?: string;
   isAllDay?: boolean;
@@ -64,6 +71,32 @@ export interface TaskUpdate extends Partial<TaskCreate> {
   status?: number;
   completedTime?: string;
   items?: ChecklistItemInput[];
+}
+
+/**
+ * Construct the full-object update TickTick's web app sends when switching an
+ * item between a task and a note. Note conversion deliberately clears
+ * task-only metadata; do not use a partial `{ kind }` update.
+ */
+export function prepareTaskKindConversion(task: Task, kind: TaskKind): Task {
+  return {
+    ...task,
+    kind,
+    items: [],
+    reminders: [],
+    reminder: null,
+    repeatFlag: null,
+    repeatFirstDate: null,
+    exDate: [],
+    priority: 0,
+    tags: [],
+    progress: 0,
+    dueDate: null,
+    // These fields are currently not modeled explicitly by TaskSchema, but
+    // are retained by its passthrough type and sent by the web client.
+    repeatFrom: null,
+    assignee: null,
+  };
 }
 
 // Project create/update parameter types

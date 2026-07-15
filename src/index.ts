@@ -7,6 +7,7 @@ import packageJson from "../package.json" with { type: "json" };
 import {
   createAuthCommand,
   createTaskCommand,
+  createNoteCommand,
   createProjectCommand,
   createGroupCommand,
   createFolderCommand,
@@ -58,6 +59,7 @@ program
 // Register all command groups
 program.addCommand(createAuthCommand());
 program.addCommand(createTaskCommand());
+program.addCommand(createNoteCommand());
 program.addCommand(createProjectCommand());
 program.addCommand(createGroupCommand());
 program.addCommand(createFolderCommand());

@@ -7,6 +7,7 @@ import { getAuth } from "../config/config.js";
 import { AuthError, ApiError, ClientError } from "../utils/errors.js";
 import { calculateBackoffDelay, sleep } from "../utils/backoff.js";
 import { BASE_URL, ENDPOINTS } from "./endpoints.js";
+import { prepareTaskKindConversion } from "./types.js";
 import {
   validateOne,
   validateArray,
@@ -36,6 +37,7 @@ import type {
   LoginResponse,
   TaskCreate,
   TaskUpdate,
+  TaskKind,
   ProjectCreate,
   ProjectUpdate,
   ProjectGroupCreate,
@@ -473,6 +475,37 @@ export class TickTickClient {
     }
 
     return updatedTask;
+  }
+
+  /**
+   * Convert a task to a note or a note to a task.
+   * TickTick requires a full-object update and normalizes task-only fields.
+   */
+  async convertTaskKind(taskId: string, projectId: string, kind: TaskKind): Promise<Task> {
+    const currentTask = await this.getTask(taskId, projectId);
+    const convertedTask = prepareTaskKindConversion(currentTask, kind);
+    const data = await this.request<unknown>(ENDPOINTS.BATCH_TASK, {
+      method: "POST",
+      body: { update: [convertedTask] },
+    });
+    const response = validateOne(
+      BatchOperationResponseSchema,
+      data,
+      this.validation,
+      "BatchOperationResponse"
+    );
+
+    if (response.id2error && Object.keys(response.id2error).length > 0) {
+      const errorMessages = Object.entries(response.id2error).map(
+        ([id, msg]) => `${id}: ${msg}`
+      );
+      throw new ClientError(`Failed to convert item: ${errorMessages.join("; ")}`);
+    }
+
+    if (response.id2etag?.[taskId]) {
+      convertedTask.etag = response.id2etag[taskId];
+    }
+    return convertedTask;
   }
 
   /**

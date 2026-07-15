@@ -90,6 +90,20 @@ tt task add "Prepare presentation" \
   --content "Q1 sales review slides"
 ```
 
+### Notes
+
+```bash
+# Create a dedicated note list
+tt project add "Journal" --kind NOTE
+
+# Add a note (the project must be a NOTE list)
+tt note add "Daily reflection" --project NOTE_PROJECT_ID --content "What went well today"
+
+# Convert between task and note (conversion clears task-only metadata)
+tt task convert-to-note TASK_ID
+tt note convert-to-task NOTE_ID
+```
+
 ### Project Management
 
 ```bash
@@ -162,6 +176,9 @@ fi
 | `tt task closed` | List completed/abandoned tasks |
 | `tt task subtask:add TASK PARENT` | Make task a subtask |
 | `tt task subtask:unset TASK` | Remove from parent |
+| `tt task convert-to-note ID` | Convert a task to a note |
+| `tt note add TITLE --project ID` | Create a note in a note list |
+| `tt note convert-to-task ID` | Convert a note to a task |
 | `tt project list` | List all projects |
 | `tt project show ID` | Show project details |
 | `tt project add NAME` | Create a new project |
