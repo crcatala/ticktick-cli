@@ -28,7 +28,7 @@
     "test:package": "bash scripts/test-package.sh",
     "verify": "bun run test && bun run lint && bun run typecheck && bun run build && bun run test:package",
     "release": "release-it",
-    "release:dry": "release-it --dry-run",
+    "release:dry": "release-it --dry-run --no-npm --no-github",
     "release:prep": "./scripts/prep-release.sh"
   },
   "keywords": [
