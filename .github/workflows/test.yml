@@ -59,7 +59,7 @@ jobs:
     runs-on: ubicloud-standard-2
     strategy:
       matrix:
-        # Cover the declared engines floor (commander v15 requires >=22.12)
+        # Cover the declared engines floor (release-it v20 requires >=22.13)
         # and a current release.
         node-version: ["22.16", "24"]
     steps:
