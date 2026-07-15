@@ -124,7 +124,7 @@ jobs:
         env:
           RUN_LIVE_TESTS: "1"
           TICKTICK_DEBUG: ${{ inputs.debug == 'true' && '1' || '0' }}
-        run: bun run test -- tests/integration/live-api.test.ts --timeout 60000
+        run: bun test tests/integration/live-api.test.ts --timeout 60000
 
       - name: Update check
         if: always() && inputs.pr_sha != '' && env.SKIP_TESTS != 'true' && steps.create_check.outputs.id != ''
