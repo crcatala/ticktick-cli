@@ -19,6 +19,14 @@ on:
     types: [created]
   workflow_dispatch:
     inputs:
+      # Kept for compatibility with the previous dispatcher on main, which still
+      # passes --field debug=false during the transition period.
+      debug:
+        description: Enable debug logging
+        type: choice
+        options: ["true", "false"]
+        default: "false"
+        required: false
       pr_number:
         description: PR number for status updates
         type: string
@@ -144,6 +152,7 @@ jobs:
         env:
           RUN_LIVE_TESTS: "1"
           TICKTICK_TOKEN: ${{ secrets.TICKTICK_TOKEN }}
+          TICKTICK_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug == 'true' && '1' || '0' }}
         run: bun test tests/integration/live-api.test.ts tests/integration/reference-resolution.live.test.ts --timeout 60000
 
       - name: Test summary
