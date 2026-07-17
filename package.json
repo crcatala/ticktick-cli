@@ -22,7 +22,7 @@
     "test": "bun --raw-test",
     "test:watch": "bun --raw-test --watch",
     "test:coverage": "bun --raw-test --coverage",
-    "test:live": "RUN_LIVE_TESTS=1 bun test --preload ./scripts/live-test-preflight.ts tests/integration/live-api.test.ts --timeout 60000",
+    "test:live": "RUN_LIVE_TESTS=1 bun test --preload ./scripts/live-test-preflight.ts tests/integration/live-api.test.ts tests/integration/reference-resolution.live.test.ts --timeout 60000",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src/",
     "schema:capture": "bun run scripts/schema-capture.ts",
