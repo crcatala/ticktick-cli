@@ -57,9 +57,22 @@ This will find and delete all resources with the `__tt-cli-test-` prefix.
 
 ## GitHub Actions
 
-Live tests can be triggered manually via the "Live Integration Tests" workflow:
-1. Go to Actions → Live Integration Tests → Run workflow
-2. Optionally enable debug logging
+Live tests use the repository `TICKTICK_TOKEN` secret and are maintainer-only.
+
+### From a PR comment
+
+On a same-repo PR, the repository owner can comment exactly:
+
+```text
+/run-live-tests
+```
+
+That runs the Live Tests workflow from the default branch, checks out the PR head SHA, and posts a check + PR comment with the result.
+
+### Manual dispatch
+
+1. Go to Actions → Live Tests → Run workflow
+2. Optionally pass `pr_number` / `pr_sha` so results are reported back to a PR
 3. The workflow uses the `TICKTICK_TOKEN` repository secret
 
 ## ⚠️ Cautions
