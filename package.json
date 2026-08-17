@@ -4,7 +4,7 @@
   "description": "Command-line interface for TickTick task management",
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "^22.21.0 || >=24.0.0"
   },
   "bin": {
     "tt": "./dist/index.js",
@@ -61,11 +61,11 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@release-it/keep-a-changelog": "^7.0.0",
+    "@release-it/keep-a-changelog": "^8.0.0",
     "@types/bun": "^1.1.14",
     "msw": "^2.12.4",
     "oxlint": "^1.39.0",
-    "release-it": "^20.2.1",
+    "release-it": "^21.0.1",
     "typescript": "^7.0.2"
   }
 }

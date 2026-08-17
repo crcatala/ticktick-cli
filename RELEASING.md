@@ -7,7 +7,7 @@ This project uses [release-it](https://github.com/release-it/release-it) for man
 - Push access to `crcatala/ticktick-cli`
 - An npm account with publish access to the `@crcatala` scope (`npm whoami`)
 - A GitHub token available as `GITHUB_TOKEN` with repository **Contents: read and write** permission, so release-it can create the GitHub Release
-- Node.js 22.13+ (release-it v20 requirement) and Bun
+- Node.js 22.21+ (release-it v21 requirement) or 24+, and Bun
 - A clean checkout on `main`
 
 The package is public and is published as `@crcatala/ticktick-cli`. It installs the `tt` and `ttcli` commands.
