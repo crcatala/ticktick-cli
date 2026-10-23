@@ -1,4 +1,4 @@
-# ticktick-cli
+<h1><img src="assets/icon.png" width="40" height="40" align="top" alt="" /> ticktick-cli</h1>
 
 A command-line interface for the [TickTick](https://ticktick.com) task management app, optimized for AI agents.
 
