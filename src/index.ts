@@ -3,7 +3,6 @@
  * TickTick CLI - Command-line interface for TickTick
  */
 import { Command, Option } from "commander";
-import packageJson from "../package.json" with { type: "json" };
 import {
   createAuthCommand,
   createTaskCommand,
@@ -17,6 +16,7 @@ import {
   createTrashCommand,
   createChecklistCommand,
 } from "./commands/index.js";
+import { runUpdate, versionDetails, versionLine } from "./cli-meta.js";
 import type { ValidationStrategy } from "./schemas/index.js";
 
 /**
@@ -46,7 +46,7 @@ const program = new Command();
 program
   .name("tt")
   .description("Command-line interface for TickTick")
-  .version(packageJson.version)
+  .version(versionLine("tt"), "-V, --version", "print the version and commit")
   .addOption(
     new Option(
       "--validation <strategy>",
@@ -55,6 +55,25 @@ program
       .choices(["strict", "warn", "off"])
       .default("strict")
   );
+
+// Version, update and self-management commands
+program
+  .command("update")
+  .description("update tt the way it was installed")
+  .option("--check", "report only: exit 0 up to date, 1 update available, 2 unknown")
+  .option("--force", "update even when already up to date")
+  .action((options: { check?: boolean; force?: boolean }) => {
+    process.exitCode = runUpdate("tt", options);
+  });
+
+program
+  .command("version")
+  .description("print version, commit, install method and path")
+  .option("--json", "Output as JSON")
+  .action((options: { json?: boolean }) => {
+    const details = versionDetails();
+    console.log(options.json ? JSON.stringify(details) : Object.entries(details).map(([k, v]) => `${k}: ${v}`).join("\n"));
+  });
 
 // Register all command groups
 program.addCommand(createAuthCommand());

@@ -2,30 +2,44 @@
 
 A command-line interface for the [TickTick](https://ticktick.com) task management app, optimized for AI agents.
 
-## Installation
+## Install
 
-Requires Node.js 22.12+ (commander v15 is ESM-only and requires Node ≥22.12 for `require(esm)`):
+Requires Node.js `^22.21.0 || >=24.0.0` (commander v15 is ESM-only and needs Node ≥22.12 for `require(esm)`):
 
 ```bash
-npm install -g @crcatala/ticktick-cli
+npm install -g @crcatala/ticktick-cli   # or: pnpm add -g @crcatala/ticktick-cli, bun add -g @crcatala/ticktick-cli
+npx @crcatala/ticktick-cli --help       # run without installing
 ```
 
 The package provides two equivalent commands: `tt` and `ttcli`. `tt` is used throughout this guide.
 
-<details>
-<summary><strong>Build from Source</strong></summary>
+### From source
 
-Requires Node.js 22.12+ and [Bun](https://bun.sh):
+Requires Node.js `^22.21.0 || >=24.0.0` and [Bun](https://bun.sh) for the build:
 
 ```bash
 git clone https://github.com/crcatala/ticktick-cli.git
 cd ticktick-cli
 bun install
 bun run build
-node dist/index.js --help
+npm link                    # puts `tt` and `ttcli` on your PATH, pointing at this clone
+tt --version                # tt X.Y.Z (sha7 YYYY-MM-DD): the commit you built
 ```
 
-</details>
+Rebuild after pulling (`bun run build`); the link keeps pointing at the clone. If `tt` is also
+installed globally, remove that copy so the linked build is the one on `PATH` (`command -v tt`
+should resolve inside the clone).
+
+### Updating
+
+```bash
+tt update --check           # exit 0: up to date, 1: update available, 2: could not tell
+tt update                   # updates the same way it was installed
+```
+
+`tt update` follows the install method: a clone is pulled with `git pull --ff-only`, then
+`bun install` and `bun run build`; a global npm, pnpm or bun install is reinstalled from the
+registry. `tt version` shows which commit, install method and path are in use.
 
 ## Quick Start
 
@@ -199,6 +213,8 @@ fi
 | `tt user stats` | Show usage statistics |
 | `tt sync` | Fetch full state snapshot |
 | `tt trash empty` | Permanently delete all trashed items |
+| `tt update` | Update `tt` the way it was installed |
+| `tt version` | Show version, commit, install method and install path |
 
 Task references accept exact IDs, unambiguous ID prefixes, and case-insensitive exact titles. Project references also accept unambiguous case-insensitive name prefixes. If multiple items match, use a full ID or add `--project PROJECT` to task lookup commands that support it.
 

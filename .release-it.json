@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
+  "$schema": "https://unpkg.com/release-it@21/schema/release-it.json",
   "git": {
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
@@ -14,11 +14,10 @@
     "releaseName": "v${version}"
   },
   "npm": {
-    "publish": true,
-    "publishArgs": ["--access", "public"]
+    "publish": false
   },
   "hooks": {
-    "before:init": ["bun run verify"],
+    "before:init": ["bash scripts/check-changelog.sh", "bun run verify"],
     "after:bump": ["bun run test:package"]
   },
   "plugins": {

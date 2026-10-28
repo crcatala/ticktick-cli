@@ -18,19 +18,20 @@
     "prepublishOnly": "bun run verify",
     "dev": "bun run src/index.ts",
     "clean": "node -e \"for (const path of ['dist', 'tsconfig.tsbuildinfo']) require('node:fs').rmSync(path, { recursive: true, force: true })\"",
-    "build": "bun run clean && tsc --build",
-    "test": "bun --raw-test",
-    "test:watch": "bun --raw-test --watch",
-    "test:coverage": "bun --raw-test --coverage",
+    "build": "bun run clean && tsc --build && node scripts/build-info.mjs",
+    "test": "bun test --isolate",
+    "test:watch": "bun test --isolate --watch",
+    "test:coverage": "bun test --isolate --coverage",
     "test:live": "RUN_LIVE_TESTS=1 bun test --preload ./scripts/live-test-preflight.ts tests/integration/live-api.test.ts tests/integration/reference-resolution.live.test.ts --timeout 60000",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src/",
     "schema:capture": "bun run scripts/schema-capture.ts",
     "test:package": "bash scripts/test-package.sh",
     "verify": "bun run test && bun run lint && bun run typecheck && bun run build && bun run test:package",
-    "release": "release-it",
-    "release:dry": "release-it --dry-run --no-npm --no-github",
-    "release:prep": "./scripts/prep-release.sh"
+    "release": "node scripts/release.mjs release",
+    "release:dry": "node scripts/release.mjs release --dry-run",
+    "release:publish": "node scripts/release.mjs publish",
+    "release:prep": "bash scripts/prep-release.sh"
   },
   "keywords": [
     "ticktick",
@@ -53,6 +54,7 @@
   },
   "files": [
     "dist/**/*.js",
+    "dist/build-info.json",
     "README.md",
     "LICENSE"
   ],

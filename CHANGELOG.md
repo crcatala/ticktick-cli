@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tt update` (with `--check` and `--force`) updates the CLI the way it was installed: a clone is pulled
+  with `git pull --ff-only`, then `bun install` and `bun run build`; a global npm, pnpm or bun install is
+  reinstalled from the registry.
+- `tt version [--json]` reports the version, full commit, commit date, dirty state, install method and
+  install path.
+- Install documentation now covers running from source and updating.
+
+### Changed
+
+- `tt --version` / `tt -V` now prints `tt X.Y.Z (sha7 YYYY-MM-DD)`, with `-dirty` for builds made from a
+  working tree with uncommitted changes, instead of the bare version number. The same line is printed by
+  a registry install and by a local build.
+
 ## [0.1.3] - 2026-07-15
 
 ### Added
