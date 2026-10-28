@@ -1,91 +1,108 @@
 # Releasing
 
-This project uses [release-it](https://github.com/release-it/release-it) for manual releases from a maintainer machine. A release builds and validates the npm package, updates the changelog and version, publishes to npm, pushes a signed-off release commit and tag, and creates a GitHub Release.
+Releases are cut by hand from a clean `main` with
+[release-it](https://github.com/release-it/release-it), wrapped by
+`scripts/release.mjs`. One command bumps the version, moves the changelog's
+Unreleased section into the new version, commits, tags `vX.Y.Z`, pushes, creates
+the GitHub Release, and then publishes `@crcatala/ticktick-cli` to npm from the
+tagged commit.
+
+The package is public and installs the `tt` and `ttcli` commands.
 
 ## Prerequisites
 
-- Push access to `crcatala/ticktick-cli`
-- An npm account with publish access to the `@crcatala` scope (`npm whoami`)
-- A GitHub token available as `GITHUB_TOKEN` with repository **Contents: read and write** permission, so release-it can create the GitHub Release
-- Node.js 22.21+ (release-it v21 requirement) or 24+, and Bun
-- A clean checkout on `main`
-
-The package is public and is published as `@crcatala/ticktick-cli`. It installs the `tt` and `ttcli` commands.
+- Push access to `main`, and a GitHub token for the release (`GITHUB_TOKEN`
+  with repository **Contents: read and write**, or release-it opens the GitHub
+  release form in the browser instead).
+- An npm login with publish rights to the `@crcatala` scope: `npm whoami`,
+  else `npm login`.
+- Node.js `^22.21.0 || >=24.0.0` (release-it v21 requirement) and Bun.
+- A clean checkout on `main`.
 
 ## Before releasing
 
-1. Pull the current main branch:
+1. Start from an up-to-date `main`:
 
    ```bash
    git checkout main
    git pull --ff-only
    ```
 
-2. Prepare and update the changelog. The helper lists changes since the last tag:
+2. Draft the changelog:
 
    ```bash
    bun run release:prep
    ```
 
-   Add user-facing entries beneath `## [Unreleased]` in `CHANGELOG.md`, using [Keep a Changelog](https://keepachangelog.com/) sections such as Added, Changed, Fixed, Removed, or Security.
+   Paste the output into an LLM, review the result, and put it under
+   `## [Unreleased]` in `CHANGELOG.md` (Added, Changed, Fixed, Removed,
+   Security; user-facing changes only). Commit it to `main` and push.
 
-3. Run the complete local verification suite:
+3. Run the full local verification suite, which is also what the release
+   preflight runs:
 
    ```bash
    bun run verify
    ```
 
-   This runs tests, linting, type checking, the JavaScript build, and an install smoke test of the exact `npm pack` tarball.
+   This runs the tests, linting, type checking, the JavaScript build (stamped
+   with the commit by `scripts/build-info.mjs`), and an install smoke test of
+   the exact `npm pack` tarball (`tt` and `ttcli` must answer `--help` and print
+   the standard `--version` line).
 
 ## Release
 
-Preview the local release steps first:
-
 ```bash
-bun run release:dry
+bun run release:dry       # preview; changes nothing and skips the hooks
+bun run release           # asks for the version; or: bun run release -- patch|minor|major
 ```
 
-`release:dry` deliberately disables the npm and GitHub integrations, so it cannot publish or open GitHub's release form. Run `release` for the full process.
-
-Then release interactively:
+`release:dry` runs the same preflight as `release`, so it also needs an npm
+login (`npm whoami`). To preview the release-it steps without one, run
+release-it directly:
 
 ```bash
-export GITHUB_TOKEN=github_pat_... # if not already configured
-bun run release
+npx release-it --dry-run --ci --no-npm --no-github
 ```
 
-Release-it prompts for the version bump and then:
+In order, `bun run release`:
 
-1. validates the clean `main` checkout and runs `bun run verify`;
-2. bumps `package.json` and moves the changelog's Unreleased entries into the new version;
-3. rebuilds `dist/`, packs it, and smoke-tests the installed `tt` and `ttcli` commands;
-4. commits and tags `vX.Y.Z`;
-5. rebuilds immediately before publishing `@crcatala/ticktick-cli` publicly to npm;
-6. pushes the commit and tag; and
-7. creates a GitHub Release using the changelog notes.
+1. refuses to start when not logged in to npm or when `HEAD` is already a release;
+2. checks that Unreleased has entries and runs `bun run verify`;
+3. bumps the version and the changelog, then runs `bun run test:package` (packs
+   the tarball, installs it, checks `--help` and `--version` for every command);
+4. commits `chore: release vX.Y.Z`, tags `vX.Y.Z`, pushes both;
+5. creates the GitHub Release;
+6. publishes to npm from the tagged commit (npm may ask for a one-time password).
 
-Useful recovery options:
+A prerelease is published under a dist-tag named after its identifier, so
+`latest` keeps pointing at the last full release:
 
 ```bash
-# Skip npm publishing if it already succeeded in a partial release
-bun run release -- --no-npm
-
-# Skip GitHub Release creation
-bun run release -- --no-github
-
-# Release a specific version without the bump prompt
-bun run release -- 0.1.1
-
-# Publish a prerelease
-bun run release -- --preRelease=alpha
+bun run release -- --preRelease=beta                  # 1.3.0-beta.0, published as @crcatala/ticktick-cli@beta
+bun run release -- --preRelease=beta --npm.tag=next   # same version, under "next"
 ```
 
-## Verify the release
+## When a step fails
+
+- **Before the commit** (steps 1–3): nothing was changed on the remote. Fix the
+  cause and run `bun run release` again; `git checkout -- .` discards a
+  half-made bump.
+- **GitHub Release** (step 5): the tag is pushed. Create the release from the
+  tag with that version's CHANGELOG section as notes
+  (`gh release create vX.Y.Z --title vX.Y.Z --notes-file <section>`), then run
+  `bun run release:publish`.
+- **npm publish** (step 6): the tag is pushed; only the publish is left. Run
+  `bun run release:publish` from the tagged commit (it picks the prerelease
+  dist-tag again; `bun run release:publish -- --tag <tag>` chooses another).
+
+Published npm versions are immutable. If a release has a defect, publish a
+corrective version rather than replacing the existing one.
+
+## Verify
 
 ```bash
-npm view @crcatala/ticktick-cli
-npx @crcatala/ticktick-cli@latest --version
+npm view @crcatala/ticktick-cli version
+npx @crcatala/ticktick-cli@latest --version     # tt X.Y.Z (sha7 YYYY-MM-DD)
 npx @crcatala/ticktick-cli@latest --help
 ```
-
-Published npm versions are immutable. If a release has a defect, publish a corrective version rather than replacing the existing one.
